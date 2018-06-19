@@ -1,0 +1,85 @@
+---
+title: "Reading main excel file"
+output: html_notebook
+---
+
+Based on "C:\Data\Referanseelver_2018\04_Paavekstalger\01_Plots.Rmd"
+
+### Libraries
+```{r}
+library(tidyverse)
+library(readxl)
+
+df_classification <- tibble(
+  Tilstandsklasse = c("S","G","M","D","SD"),
+  Tilstandsklasse2 = c("Svært god","God","Moderat","Dårlig","Svært dårlig")
+  )
+
+df_kalk <- read_excel("Data/Kalkrike_lokaliteter.xlsx")
+
+levels_tilstand <- c("Svært god","God","Moderat","Dårlig","Svært dårlig","Uklassifisert")
+```
+
+# Read data
+```{r}
+# dir("Data")
+fn <- "Data/Rapportmal_samlet_klassifisering_Elveovervåking2017 (002)_FISK.xlsx"
+df_aip <- read_excel(fn, sheet = "Begroing AIP") %>%
+  rename(Tilstandsklasse_kort = Tilstandsklasse, Tilstandsklasse = Tilstandsklasse__1) %>%
+  mutate(Tilstandsklasse_f = factor(Tilstandsklasse, levels = levels_tilstand)) %>%
+  mutate(Indeksverdi = as.numeric(Indeksverdi)) %>%
+  left_join(df_kalk)
+```
+
+```{r}
+df_aip
+```
+
+```{r, fig.height=4, fig.width=4}
+# Colors
+df_colors <- read_excel("Data/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2)
+class_colors <- with(df_colors, rgb(R/255, G/255, B/255))
+pie(rep(1,length(class_colors)), df_colors$Status, col = class_colors)
+```
+
+```{r, fig.height = 11}
+gg <- ggplot(df_aip %>% filter(!is.na(Indeksverdi)), aes(Rapportnavn, Indeksverdi, fill = Tilstandsklasse_f)) + 
+  geom_bar(stat = "identity") +
+  scale_fill_manual("AIP tilstandsklasse", values = class_colors) +
+  coord_flip() + 
+  theme(legend.position = "bottom") +
+  labs(x = "", y = "AIP")
+gg
+```
+
+```{r, fig.height = 11}
+df_aip_kalk <- df_aip %>%
+  mutate(Tilstandsklasse = ifelse(Kalkrik %in% "Moderat kalkrik", "Uklassifisert", Tilstandsklasse)) %>%
+  mutate(Tilstandsklasse_f = factor(Tilstandsklasse, levels = levels_tilstand))   # %>% View()
+
+# How to get the right colors - version 1 (returns only the observed colors in the legend)
+levels_obs <- xtabs(~as.numeric(Tilstandsklasse_f), df_aip_kalk, drop = TRUE) %>% names() %>% as.numeric()
+
+gg <- ggplot(df_aip_kalk %>% filter(!is.na(Indeksverdi)), 
+             aes(Rapportnavn, Indeksverdi, fill = Tilstandsklasse_f)) + 
+  geom_bar(stat = "identity") +
+  scale_fill_manual("AIP tilstandsklasse", values = class_colors[levels_obs]) +
+  coord_flip()  +
+  labs(x = "", y = "AIP") +
+  theme_bw() + 
+  theme(legend.position = "bottom")
+gg
+```
+
+```{r, fig.height = 11}
+# How to get the right colors - version 2 (returns all colors in the legend)
+gg <- ggplot(df_aip_kalk %>% filter(!is.na(Indeksverdi)), 
+             aes(Rapportnavn, Indeksverdi, fill = Tilstandsklasse_f)) + 
+  geom_bar(stat = "identity") +
+  scale_fill_manual("AIP tilstandsklasse", values = class_colors, drop = FALSE) +
+  coord_flip() + 
+  labs(x = "", y = "AIP") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+gg
+```
