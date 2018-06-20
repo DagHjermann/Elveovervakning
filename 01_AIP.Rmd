@@ -1,0 +1,26 @@
+---
+title: "Reading main excel file"
+output: html_notebook
+---
+
+### Libraries
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+# Read data
+```{r}
+# dir("Data")
+fn <- "Data/Rapportmal_samlet_klassifisering_Elveovervåking2017 (002)_FISK.xlsx"
+df_aip <- read_excel(fn, sheet = "Begroing AIP")
+```
+
+```{r}
+df_aip
+```
+
+```{r}
+
+```
+
