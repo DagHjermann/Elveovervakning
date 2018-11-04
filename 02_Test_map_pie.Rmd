@@ -1,0 +1,398 @@
+---
+title: "01_Test_pie_maps"
+output: html_document
+---
+
+Testing some approaches for putting pies on maps   
+
+## 0. Libs + map
+```{r}
+library(tidyverse)  # filter, group_by, summary, etc.
+library(gridGraphics)
+library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
+library(readxl)
+map_norway <- map_data("world", "Norway")
+map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+
+library(mapproj)    # mapproject
+library(ggrepel)    # geom_text_repel()
+
+```
+
+## 1. Plot just a map (with a point)
+```{r}
+df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df, aes(long, lat)) +
+    annotation_map(map_norway, fill = "grey60") +
+  geom_point() +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+gg
+```
+### b. Manual transformation 
+```{r}
+
+proj_name <- "lambert"
+proj_par = c(64, 12)
+
+xtabs(~subregion, map_norway)
+map_norway <- subset(map_norway, !subregion %in% c("Svalbard", "Jan Mayen"))
+
+projlist <- with(map_norway, mapproject(long, lat, proj_name, parameters = proj_par))
+map_norway2 <- map_norway
+map_norway2[["long"]] <- projlist[["x"]]
+map_norway2[["lat"]] <- projlist[["y"]]
+            
+# range(projlist[["y"]])
+
+# Entire map
+# df <- data.frame(long = projlist[["range"]][1:2], lat = projlist[["range"]][3:4])
+
+# Self-set lim
+
+df <- data.frame(long = c(5, 31, 10.66), lat = c(58, 71, 59.92))
+# X <- mapproject(df$long, df$lat, proj_name, parameters = proj_par)  # Doesn't work; orientation differs  
+X <- mapproject(df$long, df$lat)                                      # Does work; uses previous orientation
+df_proj <- data.frame(long = X$x, lat = X$y )
+gg <- ggplot(df_proj, aes(long, lat)) +
+    annotation_map(map_norway2, fill = "grey60") +
+  geom_point() +
+  coord_cartesian(xlim = c(-0.10, 0.075))
+gg
+
+```
+
+## 2. Package 'gridGraphics'  
+### a. Example  
+```{r}
+data.frame(x = 2:10, y = 12:20) -> dat
+plot(dat$x, dat$y)
+pie(rep(1,5), col = rainbow(5), labels = NA, radius = 1)
+grid.echo()
+grid.grab() -> mapgrob
+ggplot(data = dat) + geom_point(aes(x = x, y = y)) 
+pushViewport(viewport(x = .8, y = .4, height = .2, width = .2))    
+grid.draw(mapgrob)
+```
+
+### b. On a map   
+Note tha coordinates are (0,1) for both x and y, unrelated relative to plot
+```{r}
+pie(rep(1,6), col = rainbow(6), labels = NA, radius = 1)
+grid.echo()
+grid.grab() -> mapgrob
+gg
+pushViewport(viewport(x = .5, y = .5, height = .2, width = .2))    
+grid.draw(mapgrob)
+```
+
+## 3. Package 'ggimage'  
+### a. Example from vignette  
+[Link](https://cran.r-project.org/web/packages/ggimage/vignettes/ggimage.html#geom_icon)   
+```{r}
+# install.packages("ggimage")
+library(ggimage)
+
+# library(tibble)
+dd <- data.frame(x=LETTERS[1:3], y=1:3)
+pie <- ggplot(dd, aes(x=1, y, fill=x)) + geom_bar(stat="identity", width=1) + coord_polar(theta="y") +
+    theme_void() + theme(legend.position="none") + theme_transparent()
+
+df <- data_frame(x = sample(2:9),
+                 y = sample(2:9),
+                 width = sample(seq(0.5, 3, length.out=length(x))),
+                 pie = list(pie))
+p <- ggplot(data=data.frame(x=c(0, 10), y=c(0, 10)), aes(x, y))+geom_blank()
+p + geom_subview(aes(x=x, y=y, subview=pie, width=width, height=width), data=df)
+```
+
+### b. Based on vignette example: plotting different pies
+```{r}
+# library(tibble)
+dd <- data.frame(Type = rep(1:2, each = 3), 
+                 x = rep(c("purple", "pink", "brown"), 2), 
+                 y = c(1:3, 2,2,2))
+pie <- ggplot(dd %>% filter(Type == 2), aes(x=1, y, fill=x)) + geom_bar(stat="identity", width=1) + coord_polar(theta="y") +
+    theme_void() + theme(legend.position="none") + theme_transparent()
+pie
+
+pietypes <- unique(dd$Type)
+n_pietypes <- length(pietypes)
+pie_list <- vector("list", n_pietypes)
+for (i in 1:n_pietypes){
+  pietype <- pietypes[i]
+  pie_list[[i]] <- ggplot(subset(dd, Type %in% pietype), aes(x=1, y, fill=x)) + 
+    geom_bar(stat="identity", width=1) + 
+    scale_fill_manual(values = c("firebrick4", "darkorchid2", "violet")) + 
+    coord_polar(theta="y") +
+    theme_void() + theme(legend.position="none") + theme_transparent()
+}
+
+df <- data_frame(x = 1:2,
+                 y = 1:2,
+                 width = rep(1,2),
+                 pie = pie_list
+)
+p <- ggplot(data=data.frame(x=c(0, 4), y=c(0, 4)), aes(x, y))+geom_blank()
+p + geom_subview(aes(x=x, y=y, subview=pie, width=width, height=width), data=df)
+```
+
+### c. Put on a map 
+```{r}
+df <- data_frame(x = c(7, 11),
+                 y = c(59, 61),
+                 width = rep(1.5,2),
+                 pie = pie_list
+)
+p <- ggplot(data=data.frame(x = c(-1,36), y = c(58.5, 72)), aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway, fill = "grey60") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=width), data=df)
+p
+
+# p + coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+# Error: annotation_custom only works with Cartesian coordinates
+
+```
+
+## 4. Data
+### a. Read data
+```{r}
+library(sp)        # SpatialPoints(), CRS(), spTransform()
+
+df_stations <- read_excel("Data_input/StasonsOgPrøvetakingsoversiktElveovervåking_30_10.xlsx")
+```
+
+
+### b. Functions for converting from UTM to long/lat  
+```{r}
+# Converts utm to long-lat and (if return_entire_dataframe = TRUE) adds the variables to the data frame
+# For one single UTM zone
+utm2longlat_onezone <- function(df, xvar = "x", yvar = "y", zone, return_entire_dataframe = FALSE){
+  crs_utm <- paste0("+proj=utm +zone=", zone, " +ellps=WGS84 +datum=WGS84 +units=m")
+  SP.utm <- SpatialPoints(df[,c(xvar, yvar)], 
+                          proj4string=CRS(crs_utm)
+                          )
+  SP.longlat <- spTransform(SP.utm, CRS("+proj=longlat"))
+  if (!return_entire_dataframe){
+    df <- data.frame(Long = SP.longlat@coords[,1], Lat = SP.longlat@coords[,2])
+  } else {
+    df$Long <- SP.longlat@coords[,1]
+    df$Lat <- SP.longlat@coords[,2]
+  }
+  df
+}
+
+# utm2longlat_onezone(df_stations[1:10, ], "X-koordinat", "Y-koordinat", zone = 32)
+
+# As 'utm2longlat_onezone', but also picks data for that zone (used in 'utm2longlat')
+utm2longlat_onezone2 <- function(df, zonevar, zone, ...){
+  df2 <- df[df[[zonevar]] %in% zone,]
+  utm2longlat_onezone(df2, zone = zone, ...)
+  }
+
+# utm2longlat_onezone2(df_stations[38:42, ], "Sone", zone = 32, xvar = "X-koordinat", yvar = "Y-koordinat")
+
+# Converts utm to long-lat and (if return_entire_dataframe = TRUE) adds the variables to the data frame
+# UTM zone given as a variable in the data 
+# Note: the order the of output data is shuffled 
+utm2longlat <- function(df, xvar = "x", yvar = "y", zonevar = "zone", return_entire_dataframe = FALSE){
+  zones <- unique(df[[zonevar]])
+  df <-   
+    purrr::map_df(zones, ~utm2longlat_onezone2(df, zonevar = zonevar, zone = ., xvar = xvar, yvar = yvar, 
+                                        return_entire_dataframe = return_entire_dataframe)
+    )
+  df
+}
+
+# df_stations[38:42, "Sone"]
+# utm2longlat(df_stations[38:42, ], "X-koordinat", "Y-koordinat", "Sone")
+# utm2longlat(df_stations[38:42, ], "X-koordinat", "Y-koordinat", "Sone", return_entire_dataframe = TRUE)
+
+```
+
+### c. Convert UTM to Lang/Lot 
+```{r}
+df_stations <- utm2longlat(df_stations, "X-koordinat", "Y-koordinat", "Sone", 
+                           return_entire_dataframe = TRUE) %>%
+  arrange(Rapportnavn)
+```
+
+### d. Test map
+```{r}
+df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations, aes(Long, Lat)) +
+    annotation_map(map_norway, aes(long, lat), fill = "grey60") +
+  geom_point() +
+  geom_point(data = df_stations %>% filter(Long > 7 & Lat < 61), color = "red")+
+  geom_point(data = df_stations %>% filter(Long < 7 & Lat < 63), color = "blue") +
+  geom_point(data = df_stations %>% filter(Long > 16 & Lat > 68), color = "green") +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+gg
+
+```
+
+## 5. Use real data
+### a. Test making pie  
+Example: missing Fisk (pie piece no. 1)
+```{r}
+
+# colnames(df_stations) %>% dput()
+vars <- c("Fisk", "Bunndyr", "Begroingsalger", "Fysisk-kjemiske kvalitets elementer", 
+          "Vannregion spesifikke stoffer", "Prioriterte stoffer")
+cols <- c("darkorchid2", "darkorchid3", "darkorchid4", "brown2", "brown3", "brown4")
+sel_lacking <- is.na(df_stations[1, vars])
+#  Fisk Bunndyr Begroingsalger Fysisk-kjemiske kvalitets elementer Vannregion spesifikke stoffer
+#  TRUE   FALSE          FALSE                               FALSE                         FALSE
+#  Prioriterte stoffer
+#                FALSE
+cols[sel_lacking] <- "grey70"
+pie_data <- data.frame(x = 1, y = rep(1,6), label = vars)
+pie <- ggplot(pie_data, aes(x=x, y, fill=label)) + 
+  geom_bar(stat="identity", width=1) + coord_polar(theta="y") +
+  scale_fill_manual(values = cols) +
+  theme_void() + theme(legend.position="none") + theme_transparent()
+pie
+```
+
+
+### b. Function
+```{r}
+vars <- c("Fisk", "Bunndyr", "Begroingsalger", "Fysisk-kjemiske kvalitets elementer", 
+          "Vannregion spesifikke stoffer", "Prioriterte stoffer")
+colorscheme1 <- c("darkorchid2", "darkorchid3", "darkorchid4", "brown2", "brown3", "brown4")
+
+make_pie <- function(measurements_present, col = colorscheme1, col_lacking = "grey80"){
+  col[!measurements_present] <- col_lacking
+  pie_data <- data.frame(x = vars, y = rep(1,6))
+  ggplot(pie_data, aes(x=1, y, fill=x)) + 
+    geom_bar(stat="identity", width=1) + coord_polar(theta="y") +
+    scale_fill_manual(values = col) +
+    theme_void() + theme(legend.position="none") + theme_transparent()
+  }
+
+# make_pie(c(TRUE, TRUE, FALSE, TRUE, FALSE, TRUE))
+# make_pie(rep(TRUE, 6))
+```
+
+
+### c. Define pies from real data
+```{r, fig.height=11}
+make_pie_linenumber <- function(i)
+  make_pie(!is.na(df_stations[i, vars]))
+# make_pie_linenumber(1)
+# make_pie_linenumber(20)
+
+pies <- 1:nrow(df_stations) %>% purrr::map(~make_pie_linenumber(.))
+length(pies)
+# pies[[20]]
+
+df_pies <- data_frame(x = df_stations[["Long"]],
+                 y = df_stations[["Lat"]],
+                 label = df_stations[["Rapportnavn"]],
+                 pie = pies
+)
+# df[2,]$pie
+```
+
+### d. Map, all of Norway
+```{r, fig.height=11}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
+
+df_pies$width = 0.7    # Sets size of pies
+df_pies$height = 0.3   
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies)
+# gg
+ggsave("Figures/02_Map_elements_01.png", gg, width = 10, height = 11, dpi = 500)
+```
+
+### e. SE Norway  
+Including labels using ggrepel
+```{r, fig.height=7}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_pies$width = 0.3    # Sets size of pies
+df_pies$height = 0.15   
+
+xlimits <- c(7,12)
+ylimits <- c(58, 60.7)
+df_pies_s <- df_pies %>% 
+  filter(x > xlimits[1] & x < xlimits[2] &
+           y > ylimits[1] & y < ylimits[2])
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies_s) + 
+  geom_text_repel(data = df_pies_s, aes(label = label), point.padding = 0.5) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits)
+ggsave("Figures/02_Map_elements_SE_01.png", gg, width = 10, height = 7, dpi = 500)
+# gg
+```
+
+### f. W Norway  
+Including labels using ggrepel
+```{r, fig.height=7}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_pies$width = 0.3    # Sets size of pies
+df_pies$height = 0.15   
+
+  # geom_point(data = df_stations %>% filter(Long < 7 & Lat < 63), color = "blue") +
+xlimits <- c(4.5, 7.5)
+ylimits <- c(58.5, 63)
+df_pies_s <- df_pies %>% 
+  filter(x > xlimits[1] & x < xlimits[2] &
+           y > ylimits[1] & y < ylimits[2])
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies_s) + 
+  geom_text_repel(data = df_pies_s, aes(label = label), point.padding = 0.5) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits)
+ggsave("Figures/02_Map_elements_W_01.png", gg, width = 5, height = 10, dpi = 500)
+# gg
+```
+
+
+### g. Troms/Finnmark  
+Including labels using ggrepel
+```{r, fig.height=7}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_pies$width = 0.3    # Sets size of pies
+df_pies$height = 0.15   
+
+  # geom_point(data = df_stations %>% filter(Long < 7 & Lat < 63), color = "blue") +
+xlimits <- c(17,31)
+ylimits <- c(68, 71)
+df_pies_s <- df_pies %>% 
+  filter(x > xlimits[1] & x < xlimits[2] &
+           y > ylimits[1] & y < ylimits[2])
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies_s) + 
+  geom_text_repel(data = df_pies_s, aes(label = label), point.padding = 0.5) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits)
+ggsave("Figures/02_Map_elements_Finnmark_01.png", gg, width = 8, height = 5, dpi = 500)
+# gg
+```
+
+
+### 6. Legend
+```{r}
+# Note: 'labels' is slighlty change compared to vars
+labels <- c("Fisk", "Bunndyr", "Begroingsalger", "Fysisk-kjemiske kvalitetselementer", 
+          "Vannregionspesifikke stoffer", "Prioriterte stoffer")
+x <- rep(1,6)
+names(x) <- vars
+pie(x, col = cols, init.angle = 90)
+```
+
+
+
+
