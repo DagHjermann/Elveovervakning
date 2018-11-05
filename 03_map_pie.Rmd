@@ -1,0 +1,189 @@
+---
+title: "03 Make pie maps"
+output: html_document
+---
+
+Put pies on maps    
+
+## 0. Prerequisites
+### a. Libs + map
+```{r}
+library(tidyverse)  # filter, group_by, summary, etc.
+library(gridGraphics)
+library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
+library(readxl)
+map_norway <- map_data("world", "Norway")
+map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+
+library(mapproj)    # mapproject
+library(ggrepel)    # geom_text_repel()
+library(sp)         # SpatialPoints(), CRS(), spTransform()
+library(ggimage)    # geom_subview(), theme_transparent()
+```
+
+### b. 
+```{r}
+source("03_map_pie_functions.R")
+```
+
+
+
+## 2. Data
+### a. Read data
+```{r}
+
+df_stations <- read_excel("Data_input/StasonsOgPrøvetakingsoversiktElveovervåking_30_10.xlsx")
+```
+
+### b. Convert UTM to Lang/Lot 
+```{r}
+df_stations <- utm2longlat(df_stations, "X-koordinat", "Y-koordinat", "Sone", 
+                           return_entire_dataframe = TRUE) %>%
+  arrange(Rapportnavn)
+```
+
+### d. Test map
+```{r}
+df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations, aes(Long, Lat)) +
+    annotation_map(map_norway, aes(long, lat), fill = "grey60") +
+  geom_point() +
+  geom_point(data = df_stations %>% filter(Long > 7 & Lat < 61), color = "red")+
+  geom_point(data = df_stations %>% filter(Long < 7 & Lat < 63), color = "blue") +
+  geom_point(data = df_stations %>% filter(Long > 16 & Lat > 68), color = "green") +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+gg
+
+```
+
+## 3. Maps 
+### a. Define pies from real data
+```{r, fig.height=11}
+
+vars <- c("Fisk", "Bunndyr", "Begroingsalger", "Fysisk-kjemiske kvalitets elementer", 
+          "Vannregion spesifikke stoffer", "Prioriterte stoffer")
+colorscheme1 <- c("darkorchid2", "darkorchid3", "darkorchid4", "brown2", "brown3", "brown4")
+
+make_pie_linenumber <- function(i)
+  make_pie(!is.na(df_stations[i, vars]))
+# make_pie_linenumber(20)
+
+pies <- 1:nrow(df_stations) %>% purrr::map(~make_pie_linenumber(.))
+length(pies)
+# pies[[20]]
+
+df_pies <- data_frame(x = df_stations[["Long"]],
+                 y = df_stations[["Lat"]],
+                 label = df_stations[["Rapportnavn"]],
+                 pie = pies
+)
+# df[2,]$pie
+```
+
+### b. Map, all of Norway
+```{r, fig.height=11}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
+
+df_pies$width = 0.7    # Sets size of pies
+df_pies$height = 0.3   
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies)
+# gg
+ggsave("Figures/03_Map_elements_01.png", gg, width = 10, height = 11, dpi = 500)
+```
+
+
+### e. SE Norway  
+Including labels using ggrepel
+```{r, fig.height=7}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_pies$width = 0.3    # Sets size of pies
+df_pies$height = 0.15   
+
+xlimits <- c(7,12)
+ylimits <- c(58, 60.7)
+df_pies_s <- df_pies %>% 
+  filter(x > xlimits[1] & x < xlimits[2] &
+           y > ylimits[1] & y < ylimits[2])
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies_s) + 
+  geom_text_repel(data = df_pies_s, aes(label = label), point.padding = 0.5) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits)
+ggsave("Figures/02_Map_elements_SE_01.png", gg, width = 8, height = 8, dpi = 500)
+# gg
+```
+
+### f. W Norway  
+Including labels using ggrepel
+```{r, fig.height=7}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_pies$width = 0.3    # Sets size of pies
+df_pies$height = 0.15   
+
+  # geom_point(data = df_stations %>% filter(Long < 7 & Lat < 63), color = "blue") +
+xlimits <- c(4.5, 7.5)
+ylimits <- c(58.5, 63)
+df_pies_s <- df_pies %>% 
+  filter(x > xlimits[1] & x < xlimits[2] &
+           y > ylimits[1] & y < ylimits[2])
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies_s) + 
+  geom_text_repel(data = df_pies_s, aes(label = label), point.padding = 0.5) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits)
+ggsave("Figures/02_Map_elements_W_01.png", gg, width = 5, height = 10, dpi = 500)
+# gg
+```
+
+
+### g. Troms/Finnmark  
+Including labels using ggrepel
+```{r, fig.height=7}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_pies$width = 0.3    # Sets size of pies
+df_pies$height = 0.15   
+
+  # geom_point(data = df_stations %>% filter(Long < 7 & Lat < 63), color = "blue") +
+xlimits <- c(17,31)
+ylimits <- c(68, 71)
+df_pies_s <- df_pies %>% 
+  filter(x > xlimits[1] & x < xlimits[2] &
+           y > ylimits[1] & y < ylimits[2])
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies_s) + 
+  geom_text_repel(data = df_pies_s, aes(label = label), point.padding = 0.5) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits)
+ggsave("Figures/02_Map_elements_Finnmark_01.png", gg, width = 8, height = 5, dpi = 500)
+# gg
+```
+
+
+### 6. Legend
+```{r}
+# Note: 'labels' is slighlty change compared to vars
+labels <- c("Fisk", "Bunndyr", "Begroingsalger", "Fysisk-kjemiske kvalitetselementer", 
+          "Vannregionspesifikke stoffer", "Prioriterte stoffer")
+x <- rep(1,6)
+names(x) <- labels
+
+png("Figures/02_Pielegend_01.png", width = 40*0.7, height = 20*0.7, unit = "cm", res = 300)
+pie(x, col = cols, init.angle = 90, cex = 1.6)
+dev.off()
+
+```
+
+
+
+
