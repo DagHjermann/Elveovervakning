@@ -310,6 +310,23 @@ gg <- ggplot(data=df_range, aes(x, y)) +
 ggsave("Figures/02_Map_elements_01.png", gg, width = 10, height = 11, dpi = 500)
 ```
 
+
+### d2. Map, all of Norway, with river labels
+```{r, fig.height=11}
+df_vannforekomst <- df_stations %>%
+  group_by(`Vannforekomst navn`) %>%
+  summarise(Long = mean(Long), Lat = mean(Lat))
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_text_repel(data = df_vannforekomst, aes(Long, Lat, label = `Vannforekomst navn`), point.padding = 0.5) +
+  geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies)
+# gg
+ggsave("Figures/02_Map_elements_02.png", gg, width = 10, height = 11, dpi = 500)
+```
+
+
 ### e. SE Norway  
 Including labels using ggrepel
 ```{r, fig.height=7}
@@ -329,7 +346,7 @@ gg <- ggplot(data=df_range, aes(x, y)) +
   geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies_s) + 
   geom_text_repel(data = df_pies_s, aes(label = label), point.padding = 0.5) +
   coord_cartesian(xlim = xlimits, ylim = ylimits)
-ggsave("Figures/02_Map_elements_SE_01.png", gg, width = 10, height = 7, dpi = 500)
+ggsave("Figures/02_Map_elements_SE_01.png", gg, width = 8, height = 8, dpi = 500)
 # gg
 ```
 
@@ -389,8 +406,12 @@ ggsave("Figures/02_Map_elements_Finnmark_01.png", gg, width = 8, height = 5, dpi
 labels <- c("Fisk", "Bunndyr", "Begroingsalger", "Fysisk-kjemiske kvalitetselementer", 
           "Vannregionspesifikke stoffer", "Prioriterte stoffer")
 x <- rep(1,6)
-names(x) <- vars
-pie(x, col = cols, init.angle = 90)
+names(x) <- labels
+
+png("Figures/02_Pielegend_01.png", width = 40*0.7, height = 20*0.7, unit = "cm", res = 300)
+pie(x, col = cols, init.angle = 90, cex = 1.6)
+dev.off()
+
 ```
 
 
