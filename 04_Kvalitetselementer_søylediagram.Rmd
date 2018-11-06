@@ -1,0 +1,93 @@
+---
+title: "04 Kvalitetselementer søylediagram"
+output: html_document
+---
+
+## 0. Warming up
+### a. Lib
+```{r setup, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(viridis)
+library(cowplot)     # plot_grid (https://cran.r-project.org/web/packages/cowplot/vignettes/plot_grid.html)
+
+save_plots <- TRUE
+
+```
+
+b. Functions
+```{r}
+source("04_Kvalitetselementer_søylediagram_functions.R")
+```
+
+
+## 1. Define colours
+```{r}
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2)
+class_colors <- with(df_colors, rgb(R/255, G/255, B/255))
+# class_colors <- c(class_colors, rgb(0.5, 0.5, 0.5))
+names(class_colors) <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig","Uklassifisert")
+class_colors
+```
+
+## 2. Overall indices
+
+### a. Data
+```{r}
+data_forsur <- read_excel(
+  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18.xlsx", 
+  sheet = "Forsuring VF", range = "A1:H37", na = "NA")
+data_eutrofi <- read_excel(
+  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18.xlsx", 
+  sheet = " Eutrofi VF ", range = "A1:F37", na = "NA")
+data_total <- read_excel(
+  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18.xlsx", 
+  sheet = "Totalvurdering VF", range = "A1:N37", na = "NA")
+```
+
+### b. Acidification , combined index  
+Using make_indexplot() function  
+```{r}
+label <- "Samlet forsuringstilstand (nEQR)"
+plotno <- "1a"
+gg <- make_indexplot(data_forsur, "Samlet forsurings tilstand", label)
+# gg
+if (save_plots)
+  ggsave(paste0("Figures/04_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+```
+
+### c. Eutrophication , combined index  
+```{r}
+label <- "Samlet eutrofieringstilstand (nEQR)"
+plotno <- "1b"
+gg <- make_indexplot(data_eutrofi, "Samlet eutrofitilstand", label)
+# gg
+if (save_plots)
+  ggsave(paste0("Figures/04_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+```
+
+### d. Combined ecological index  
+```{r}
+label <- "Samlet økologisk tilstand (nEQR)"
+plotno <- "1c"
+gg <- make_indexplot(data_total, "Samlet økologisk tilstand", label, varname_navn = "VF, kortnavn")
+# gg
+if (save_plots)
+  ggsave(paste0("Figures/04_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+```
+
+
+## 3. Plots with dots on station/sample level 
+With data on station level, using function make_indexplot_dots()    
+__NOTE__: Check if this is the latest data  
+NOTE: Lacking helper lines for 
+```{r}
+gg <- make_indexplot_dots("PIT", "PIT-index", "2a")
+gg <- make_indexplot_dots("AIP", "AIP-index", "2b", range = "A2:H53", including_kalkrik = TRUE)
+gg <- make_indexplot_dots("HBI2", "HBI2-index", "2c")
+gg <- make_indexplot_dots("ASPT", "ASPT-index", "2d")
+gg <- make_indexplot_dots("RAMI", "RAMI-index", "2e")
+
+```
+
+
