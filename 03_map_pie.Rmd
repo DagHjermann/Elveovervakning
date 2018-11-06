@@ -13,7 +13,13 @@ library(gridGraphics)
 library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
 library(readxl)
 map_norway <- map_data("world", "Norway")
-map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+# map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+
+# Better map (including the smaller islands) - from 
+ load("Data_input/Norway_coastline_longlat2.RData")
+ map_norway_h <- norway_coast_longlat2
+ rm(norway_coast_longlat)
+
 
 library(mapproj)    # mapproject
 library(ggrepel)    # geom_text_repel()
@@ -59,7 +65,7 @@ gg
 
 ```
 
-## 3. Maps, define pies from data
+## 3. Maps of elements, define pies from data
 ```{r, fig.height=11}
 
 vars <- c("Fisk", "Bunndyr", "Begroingsalger", "Fysisk-kjemiske kvalitets elementer", 
@@ -123,7 +129,8 @@ gg1 <- ggplot(data=df_range, aes(x, y)) +
   geom_blank() +
   annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
   geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies) +
-  geom_text_repel(data = df_stations, aes(Long, Lat, label = Elv_kart), point.padding = 0.5)
+  geom_text_repel(data = df_stations, aes(Long, Lat, label = Elv_kart), point.padding = 0.5) +
+  theme(axis.title = element_blank())
 
 gg <- gg1 +
    annotate("text", x = 27.5, y = 70.35,label = "Tanaelva", angle = 20) +
@@ -134,7 +141,8 @@ gg <- gg1 +
 #   annotate("text", x = 11.75, y = 59.75,label = "Glomma", angle = 70) +
 #    annotate("text", x = 27.5, y = 70.35,label = "Tanaelva", angle = 20) 
 
-ggsave("Figures/03_Map_elements_03.png", gg, width = 10, height = 11, dpi = 500)
+# ggsave("Figures/03_Map_elements_03.png", gg, width = 10, height = 11, dpi = 500)
+ggsave("Figures/03_Map_elements_04.png", gg, width = 10, height = 11, dpi = 500)
   
 # For finding coordinates
 # gg <- gg1 + geom_vline(xintercept = seq(9,12,0.5)) + geom_hline(yintercept = seq(58, 61, 0.5))
@@ -162,7 +170,8 @@ gg1 <- ggplot(data=df_range[sel,], aes(x, y)) +
   annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
   geom_subview(aes(x=x, y=y, subview=pie, width=width, height=height), data=df_pies[sel,]) +
   # geom_text_repel(data = df_stations[sel,], aes(Long, Lat, label = Elv_kart), point.padding = 0.5) +
-  coord_cartesian(xlim = xlimits, ylim = ylimits)
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme(axis.title = element_blank())
 
 gg <- gg1 +
   annotate("text", x = 9.75, y = 59.25,label = "Numedalslågen", angle = -65, adj = 0.5, size = 6) + 
@@ -170,15 +179,15 @@ gg <- gg1 +
   annotate("text", x = 9.7, y = 60.1, label = "Snarumselva", angle = 0, adj = 1.0, size = 6) +
   annotate("text", x = 10.25, y = 60.35, label = "Randselva", angle = 0, adj = 0.5, size = 6) +
   annotate("text", x = 10.85, y = 60.05, label = "Alna", angle = 0, adj = 0.5, size = 6) +
-  annotate("text", x = 11.4, y = 59.75,label = "G l o m m a", angle = 80, size = 6) +
-  annotate("text", x = 9.0, y = 58.5,label = "Storelva", angle = -45, adj = 0, size = 6) + 
-  annotate("text", x = 8.7, y = 58.3,label = "Nidelva", angle = -45, adj = 0, size = 6) + 
-  annotate("text", x = 8.2, y = 58.15,label = "Tovdalselva", angle = -45, adj = 0, size = 6) +
-  annotate("text", x = 8.0, y = 58.1,label = "Otra", angle = -45, adj = 0, size = 6)  +
-  annotate("text", x = 7.6, y = 58.0,label = "Mandalselva", angle = -45, adj = 0, size = 6) 
+  annotate("text", x = 11.4, y = 59.75, label = "G l o m m a", angle = 80, size = 6) +
+  annotate("text", x = 9.0, y = 58.5, label = "Storelva", angle = -45, adj = 0, size = 6) + 
+  annotate("text", x = 8.7, y = 58.3, label = "Nidelva", angle = -45, adj = 0, size = 6) + 
+  annotate("text", x = 8.2, y = 58.15, label = "Tovdalselva", angle = -45, adj = 0, size = 6) +
+  annotate("text", x = 8.0, y = 58.1, label = "Otra", angle = -45, adj = 0, size = 6)  +
+  annotate("text", x = 7.6, y = 58.0, label = "Mandalselva", angle = -45, adj = 0, size = 6) 
 # gg
 # gg + geom_vline(xintercept = seq(7.5,12,0.5)) + geom_hline(yintercept = seq(58, 61, 0.5))
-ggsave("Figures/03_Map_elements_SE_01.png", gg, width = 8, height = 8, dpi = 500)
+ggsave("Figures/03_Map_elements_SE_02.png", gg, width = 8, height = 8, dpi = 500)
 
 ```
 
@@ -272,4 +281,173 @@ dev.off()
 
 
 
+
+## 5. Maps of results (ecology + chemistry)  
+This part depends on sections 1-2 above, but not 3-4  
+  
+### a. Data
+```{r}
+data_index <- read_excel(
+  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18.xlsx", 
+  sheet = "Økologisk og kjemisk tilstand", range = "A1:E37", na = "Data mangler") %>%
+  as.data.frame()
+
+colnames(data_index)[1:3] <- c("Rapportnavn", "Indeksverdi", "Indeksverdi_kjemi")
+```
+
+
+### b. Colours
+```{r}
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2)
+class_colors <- with(df_colors, rgb(R/255, G/255, B/255))
+# class_colors <- c(class_colors, rgb(0.5, 0.5, 0.5))
+names(class_colors) <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig","Uklassifisert")
+class_colors
+```
+
+### c. Define pies from data
+```{r, fig.height=11}
+x1 <- data_index$Indeksverdi
+x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
+x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+data_index$Indeks_ecol <- x3
+data_index$Colour_ecol <- class_colors[x2]
+
+
+# Quick check
+# table(x1 > 0.6, data_index$Colour_ecol)
+#
+#          005CE6 #009036 #EC1C24 #F29400 #FFEC00
+#   FALSE       0       0       2       2       5
+#   TRUE        8      19       0       0       0
+
+data_index$Colour_chem <- case_when(
+  data_index$Indeksverdi_kjemi %in% "God kjemisk tilstand" ~ class_colors["Svært god"],
+  data_index$Indeksverdi_kjemi %in% "Ikke god kjemisk tilstand" ~ class_colors["Svært dårlig"],
+  is.na(data_index$Indeksverdi_kjemi) ~ class_colors["Uklassifisert"]
+)
+# table(data_index$Colour_chem)
+
+make_pie_linenumber_indexvalues <- function(i){
+  df <- data_index[i, c("Colour_ecol", "Colour_chem")]
+  make_pie_from_colours(as.character(df))
+}
+# make_pie_linenumber_indexvalues(1)
+# make_pie_linenumber_indexvalues(2)
+# make_pie_linenumber_indexvalues(4)
+
+pies <- 1:nrow(data_index) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
+length(pies)
+# pies[[9]]
+```
+
+### d. Get location data on Vannforekomst-level
+```{r}
+df_stations_vf <- df_stations %>%
+  group_by(`Vannforekomst ID`) %>%
+  summarize(Long = mean(Long), Lat = mean(Lat)) %>%
+  rename(VannforekomstID = `Vannforekomst ID`)
+
+```
+
+### e. Test map
+```{r}
+df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations_vf, aes(Long, Lat)) +
+    annotation_map(map_norway, aes(long, lat), fill = "grey60") +
+  geom_point() +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+gg
+```
+
+### f. Make data frame with locations and pies
+```{r}
+# Start with data_index, add locations
+nrow(data_index)
+df_pies <- data_index %>% 
+  left_join(df_stations_vf %>% select(VannforekomstID, Long, Lat))
+nrow(df_pies)
+
+length(pies)
+# Add pies
+df_pies$pie = pies
+
+```
+
+### g. Plot (all Norway)
+```{r}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
+
+df_pies$width = 0.7    # Sets size of pies
+df_pies$height = 0.3   
+
+#
+# Without all labels
+#
+gg1 <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(data = df_pies, aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies, aes(Long, Lat, label = Rapportnavn), point.padding = 0.5)
+# gg1
+
+# gg <- gg1 +
+#    annotate("text", x = 27.5, y = 70.35,label = "Tanaelva", angle = 20) +
+#    annotate("text", x = 21, y = 69.5,label = "Reisaelva", angle = -48) 
+#   annotate("text", x = 9.5, y = 59.25,label = "Numedalslågen", angle = -70, adj = 0.2) + 
+#   annotate("text", x = 9.4, y = 60,label = "Drammenselva", angle = 0, adj = 1.0) +
+#   annotate("segment", x = 9.45, xend = 9.7, y = 60, yend = 59.9) +
+#   annotate("text", x = 11.75, y = 59.75,label = "Glomma", angle = 70) +
+#    annotate("text", x = 27.5, y = 70.35,label = "Tanaelva", angle = 20) 
+
+# ggsave("Figures/03_Map_index_01.png", gg1, width = 10, height = 11, dpi = 500)  # R map
+ggsave("Figures/03_Map_index_02.png", gg1, width = 10, height = 11, dpi = 500)    # N1000 map
+
+#
+# Without labels for SE Norway
+#
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+gg1b <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(data = df_pies, aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[!sel,], aes(Long, Lat, label = Rapportnavn), point.padding = 0.5)
+
+# ggsave("Figures/03_Map_index_01b.png", gg1b, width = 10, height = 11, dpi = 500)  # R map
+ggsave("Figures/03_Map_index_02b.png", gg1b, width = 10, height = 11, dpi = 500)    # N1000 map
+
+# For finding coordinates
+# gg <- gg1 + geom_vline(xintercept = seq(9,12,0.5)) + geom_hline(yintercept = seq(58, 61, 0.5))
+# ggsave("Figures/03_Map_elements_coor.png", gg, width = 10, height = 11, dpi = 150)
+
+```
+
+### h. Plot SE Norway
+```{r}
+df_pies$width = 0.3    # Sets size of pies
+df_pies$height = 0.15   
+xlimits <- c(7,12)
+ylimits <- c(57.6, 60.7)
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+gg2 <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel,], aes(Long, Lat, label = Rapportnavn), point.padding = 0.75, size = 7) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits)
+# ggsave("Figures/03_Map_index_SE_01.png", gg2, width = 10, height = 11, dpi = 500)  
+# ggsave("Figures/03_Map_index_SE_02.png", gg2, width = 10, height = 11, dpi = 500) # increased pies
+# ggsave("Figures/03_Map_index_SE_03.png", gg2, width = 10, height = 11, dpi = 500)   # new map, font 5
+# ggsave("Figures/03_Map_index_SE_04.png", gg2, width = 10, height = 11, dpi = 500)     # new map, font 6
+ ggsave("Figures/03_Map_index_SE_05.png", gg2, width = 10, height = 11, dpi = 500)     # new map, font 7
+
+```
 

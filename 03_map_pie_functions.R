@@ -50,6 +50,11 @@ utm2longlat <- function(df, xvar = "x", yvar = "y", zonevar = "zone", return_ent
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 #
 # Make one pie
+# Fixed colorscheme1 
+# measurements_present tells us which of the pies that should be coloured according to the colour scheme
+# Those pies with measurements missing gets a grey colour
+#
+# Pies start at top 12:00 and goes anti-clockwise
 #
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
@@ -63,3 +68,26 @@ make_pie <- function(measurements_present, col = colorscheme1, col_lacking = "gr
     theme_void() + theme(legend.position="none") + theme_transparent()
 }
 
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# Make one pie from a vecor of colours
+#
+# Pies start at top 12:00 and goes anti-clockwise
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
+
+make_pie_from_colours <- function(cols){
+  N <- length(cols)
+  pie_data <- tibble(x = letters[1:N], y = rep(1,N), no = 1:N) %>% as.data.frame()
+  pie_data$z = paste(pie_data$no, pie_data$cols, sep = "_")
+  ggplot(pie_data, aes(x=1, y, fill = z)) + 
+    geom_bar(stat="identity", width=1) + coord_polar(theta="y") +
+    scale_fill_manual(values = cols) +
+    theme_void() + theme(legend.position="none") + theme_transparent()
+}
+
+# make_pie_from_colours(c("red", "blue"))
+# make_pie_from_colours(c("blue", "red", "green"))
+# make_pie_from_colours(c("blue", "blue", "green"))
+# make_pie_from_colours(colors()[1:15])
