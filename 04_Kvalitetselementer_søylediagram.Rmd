@@ -34,15 +34,10 @@ class_colors
 
 ### a. Data
 ```{r}
-data_forsur <- read_excel(
-  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18.xlsx", 
-  sheet = "Forsuring VF", range = "A1:H37", na = "NA")
-data_eutrofi <- read_excel(
-  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18.xlsx", 
-  sheet = " Eutrofi VF ", range = "A1:F37", na = "NA")
-data_total <- read_excel(
-  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18.xlsx", 
-  sheet = "Totalvurdering VF", range = "A1:N37", na = "NA")
+fn <- "Data_input/ØkologiskTilstandsklassifisering2017_5nov18_7_11 korrekt forsuring_v2.xlsx"
+data_forsur <- read_excel(fn, sheet = "Forsuring VF", range = "A1:H37", na = "NA")
+data_eutrofi <- read_excel(fn, sheet = " Eutrofi VF ", range = "A1:F37", na = "NA")
+data_total <- read_excel(fn, sheet = "Totalvurdering VF", range = "A1:N37", na = "NA")
 ```
 
 ### b. Acidification , combined index  
@@ -79,7 +74,7 @@ if (save_plots)
 
 ## 3. Plots with dots on station/sample level 
 With data on station level, using function make_indexplot_dots()    
-__NOTE__: Check if this is the latest data  
+__NOTE: NOT the latest data!!  __
 NOTE: Lacking helper lines for 
 ```{r}
 gg <- make_indexplot_dots("PIT", "PIT-index", "2a")
