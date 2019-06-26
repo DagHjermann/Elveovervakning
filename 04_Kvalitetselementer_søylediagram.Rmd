@@ -11,7 +11,7 @@ library(readxl)
 library(viridis)
 library(cowplot)     # plot_grid (https://cran.r-project.org/web/packages/cowplot/vignettes/plot_grid.html)
 
-save_plots <- TRUE
+save_plots <- FALSE
 
 ```
 
