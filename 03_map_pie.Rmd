@@ -16,9 +16,9 @@ map_norway <- map_data("world", "Norway")
 # map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
 
 # Better map (including the smaller islands) - from 
- load("Data_input/Norway_coastline_longlat2.RData")
- map_norway_h <- norway_coast_longlat2
- rm(norway_coast_longlat)
+load("Data_input/Norway_coastline_longlat2.RData")
+map_norway_h <- norway_coast_longlat2
+rm(norway_coast_longlat)
 
 
 library(mapproj)    # mapproject
@@ -305,76 +305,84 @@ names(class_colors) <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig"
 class_colors
 ```
 
-### c. Define pies from data
-```{r, fig.height=11}
-x1 <- data_index$Indeksverdi
-x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
-x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
-data_index$Indeks_ecol <- x3
-data_index$Colour_ecol <- class_colors[x2]
-
-
-# Quick check
-# table(x1 > 0.6, data_index$Colour_ecol)
-#
-#          005CE6 #009036 #EC1C24 #F29400 #FFEC00
-#   FALSE       0       0       2       2       5
-#   TRUE        8      19       0       0       0
-
-data_index$Colour_chem <- case_when(
-  data_index$Indeksverdi_kjemi %in% "God kjemisk tilstand" ~ class_colors["Svært god"],
-  data_index$Indeksverdi_kjemi %in% "Ikke god kjemisk tilstand" ~ class_colors["Svært dårlig"],
-  is.na(data_index$Indeksverdi_kjemi) ~ class_colors["Uklassifisert"]
-)
-# table(data_index$Colour_chem)
-
-make_pie_linenumber_indexvalues <- function(i){
-  df <- data_index[i, c("Colour_ecol", "Colour_chem")]
-  make_pie_from_colours(as.character(df))
-}
-# make_pie_linenumber_indexvalues(1)
-# make_pie_linenumber_indexvalues(2)
-# make_pie_linenumber_indexvalues(4)
-
-pies <- 1:nrow(data_index) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
-length(pies)
-# pies[[9]]
-```
-
-### d. Get location data on Vannforekomst-level
+### c. Start making 'df_pies'  
+Also writes df_stations_vf to excel (later manipulated semi-manuall and used in part 6)   
 ```{r}
+# Get location data on Vannforekomst-level
 df_stations_vf <- df_stations %>%
   group_by(`Vannforekomst ID`) %>%
   summarize(Long = mean(Long), Lat = mean(Lat)) %>%
   rename(VannforekomstID = `Vannforekomst ID`)
 
-```
+# Write to xlsx (used in part 6)
+openxlsx::write.xlsx(df_stations_vf, "Data/03_df_stations_vf.xlsx")
 
-### e. Test map
-```{r}
-df <- data.frame(long = 10.66, lat = 59.92)
-gg <- ggplot(df_stations_vf, aes(Long, Lat)) +
-    annotation_map(map_norway, aes(long, lat), fill = "grey60") +
-  geom_point() +
-  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
-gg
-```
-
-### f. Make data frame with locations and pies
-```{r}
 # Start with data_index, add locations
 nrow(data_index)
 df_pies <- data_index %>% 
   left_join(df_stations_vf %>% select(VannforekomstID, Long, Lat))
 nrow(df_pies)
 
+```
+
+
+### d. Make pies from data frame 'df_pies', and add to 'df_pies'
+```{r}
+### c. Define pies from data
+x1 <- df_pies$Indeksverdi
+x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
+x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+df_pies$Indeks_ecol <- x3
+df_pies$Colour_ecol <- class_colors[x2]
+
+
+# Quick check
+# table(x1 > 0.6, df_pies$Colour_ecol)
+#
+#          005CE6 #009036 #EC1C24 #F29400 #FFEC00
+#   FALSE       0       0       2       2       5
+#   TRUE        8      19       0       0       0
+
+df_pies$Colour_chem <- case_when(
+  df_pies$Indeksverdi_kjemi %in% "God kjemisk tilstand" ~ class_colors["Svært god"],
+  df_pies$Indeksverdi_kjemi %in% "Ikke god kjemisk tilstand" ~ class_colors["Svært dårlig"],
+  is.na(df_pies$Indeksverdi_kjemi) ~ class_colors["Uklassifisert"]
+)
+# table(df_pies$Colour_chem)
+
+make_pie_linenumber_indexvalues <- function(i){
+  df <- df_pies[i, c("Colour_ecol", "Colour_chem")]
+  make_pie_from_colours(as.character(df))
+}
+# make_pie_linenumber_indexvalues(1)
+# make_pie_linenumber_indexvalues(2)
+# make_pie_linenumber_indexvalues(4)
+
+pies <- 1:nrow(df_pies) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
 length(pies)
-# Add pies
+# pies[[9]]
+
+# Add pies to 
 df_pies$pie = pies
+
+
+saveRDS(df_pies,  "Data/03_df_pies.RData")
 
 ```
 
-### g. Plot (all Norway)
+### e. Test map
+```{r}
+df <- data.frame(long = 10.66, lat = 59.92)
+# gg <- ggplot(df_stations_vf, aes(Long, Lat)) +
+gg <- ggplot(df_pies, aes(Long, Lat)) +
+    annotation_map(map_norway, aes(long, lat), fill = "grey60") +
+  geom_point() +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+gg
+```
+
+
+### f. Plot (all Norway)
 ```{r}
 # Define two points in lower left and upper right corner (just used to set the drawing canvas)
 df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
@@ -393,6 +401,8 @@ gg1 <- ggplot(data=df_range, aes(x, y)) +
   theme_nothing()
 # gg1
 
+# gg1
+
 # gg <- gg1 +
 #    annotate("text", x = 27.5, y = 70.35,label = "Tanaelva", angle = 20) +
 #    annotate("text", x = 21, y = 69.5,label = "Reisaelva", angle = -48) 
@@ -403,7 +413,7 @@ gg1 <- ggplot(data=df_range, aes(x, y)) +
 #    annotate("text", x = 27.5, y = 70.35,label = "Tanaelva", angle = 20) 
 
 # ggsave("Figures/03_Map_index_01.png", gg1, width = 10, height = 11, dpi = 500)  # R map
-ggsave("Figures/03_Map_index_06_all_labels.png", gg1, width = 10, height = 11, dpi = 500)    # N1000 map
+# ggsave("Figures/03_Map_index_06_all_labels.png", gg1, width = 10, height = 11, dpi = 500)    # N1000 map
 
 #
 # Without labels for SE Norway
@@ -431,7 +441,8 @@ ggsave("Figures/03_Map_index_06.png", gg1b, width = 10, height = 11, dpi = 500) 
 
 ```
 
-### h. Plot SE Norway
+
+### g. Plot SE Norway
 ```{r}
 df_pies$width = 0.3    # Sets size of pies
 df_pies$height = 0.15   
@@ -457,9 +468,235 @@ gg2 <- ggplot(data=df_range, aes(x, y)) +
 
 ```
 
-### i. Sample pie
+### h. Sample pie
 ```{r}
 df_pies[12, "pie"]
-ggsave("Figures/03_Map_index_sample_pie.png", width = 5, height = 5, dpi = 500)     # new map, font 7
+ggsave("Figures/03_Map_index_sample_pie.png", width = 5, height = 5, dpi = 500)   
+```
+
+
+### h. Sample pie 'neutral'
+```{r}
+gg_sample <- make_pie_from_colours(c("white", "black"))
+ggsave("Figures/03_Map_index_sample_pie2.png", gg_sample, width = 4, height = 4, dpi = 500)    
+
+```
+
+
+
+## 6. Maps of ecology + chemistry, pie positions manipulated  
+This part depends on sections 1-2 above, but not 3-5  
+1. Positions written to excel in 5c (03_df_stations_vf.xlsx)
+2. Copied to new file, '03_df_stations_vf_with_pie_positions.xlsx'   
+3. Entered Long_pie and Lat_pie positions in excel using the script '06_get_pie_placement.R'  
+  
+### a. Data
+```{r}
+data_index <- read_excel(
+  "Data_input/ØkologiskTilstandsklassifisering2017_5nov18_7_11 korrekt forsuring_v2.xlsx", 
+  sheet = "Økologisk og kjemisk tilstand", range = "A1:E37", na = "Data mangler") %>%
+  as.data.frame()
+
+colnames(data_index)[1:3] <- c("Rapportnavn", "Indeksverdi", "Indeksverdi_kjemi")
+```
+
+
+### b. Colours
+```{r}
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2)
+class_colors <- with(df_colors, rgb(R/255, G/255, B/255))
+# class_colors <- c(class_colors, rgb(0.5, 0.5, 0.5))
+names(class_colors) <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig","Uklassifisert")
+class_colors
+```
+
+### c. Start making 'df_pies2'  
+Also writes df_stations_vf to excel (later manipulated semi-manuall and used in part 6)   
+```{r}
+# Read excel file 
+df_stations_vf <- readxl::read_excel("Data/03_df_stations_vf_with_pie_positions.xlsx")
+
+# Start with data_index, add locations
+nrow(data_index)
+df_pies2 <- data_index %>% 
+  left_join(df_stations_vf %>% select(VannforekomstID, Long, Lat, Long_pie, Lat_pie))
+nrow(df_pies2)
+
+# Fille empty 
+sel <- is.na(df_pies2$Long_pie)
+df_pies2$Long_pie[sel] <- df_pies2$Long[sel]
+
+sel <- is.na(df_pies2$Lat_pie)
+df_pies2$Lat_pie[sel] <- df_pies2$Lat[sel]
+
+
+```
+
+
+### d. Make pies from data frame 'df_pies2', and add to 'df_pies2'
+```{r}
+### c. Define pies from data
+x1 <- df_pies2$Indeksverdi
+x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
+x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+df_pies2$Indeks_ecol <- x3
+df_pies2$Colour_ecol <- class_colors[x2]
+
+
+# Quick check
+# table(x1 > 0.6, df_pies2$Colour_ecol)
+#
+#          005CE6 #009036 #EC1C24 #F29400 #FFEC00
+#   FALSE       0       0       2       2       5
+#   TRUE        8      19       0       0       0
+
+df_pies2$Colour_chem <- case_when(
+  df_pies2$Indeksverdi_kjemi %in% "God kjemisk tilstand" ~ class_colors["Svært god"],
+  df_pies2$Indeksverdi_kjemi %in% "Ikke god kjemisk tilstand" ~ class_colors["Svært dårlig"],
+  is.na(df_pies2$Indeksverdi_kjemi) ~ class_colors["Uklassifisert"]
+)
+# table(df_pies2$Colour_chem)
+
+make_pie_linenumber_indexvalues <- function(i){
+  df <- df_pies2[i, c("Colour_ecol", "Colour_chem")]
+  make_pie_from_colours(as.character(df))
+}
+# make_pie_linenumber_indexvalues(1)
+# make_pie_linenumber_indexvalues(2)
+# make_pie_linenumber_indexvalues(4)
+
+pies <- 1:nrow(df_pies2) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
+length(pies)
+# pies[[9]]
+
+# Add pies to 'df_pies2'
+df_pies2$pie = pies
+
+
+```
+
+### e. Test map
+```{r}
+df <- data.frame(long = 10.66, lat = 59.92)
+# gg <- ggplot(df_stations_vf, aes(Long, Lat)) +
+gg <- ggplot(df_pies2, aes(Long, Lat)) +
+    annotation_map(map_norway, aes(long, lat), fill = "grey60") +
+  geom_point(size = 2) +
+  geom_point(aes(Long_pie, Lat_pie), color = "red", size = 0.5) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+gg
+```
+
+
+
+### f. Plot (all Norway)
+Without labels for SE Norway  
+```{r}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
+
+
+df_pies2$width = 0.7*1.3    # Sets size of pies
+df_pies2$height = 0.3*1.3   
+
+#
+# Without labels for SE Norway
+#
+xlimits <- c(7,12)
+ylimits <- c(57.6, 60.7)
+sel <- with(df_pies2, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+gg1b <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_point(data = df_pies2, aes(x=Long, y=Lat), color = "black") +
+  # geom_subview(data = df_pies2, aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies2[!sel,], aes(Long_pie, Lat_pie, label = Rapportnavn), size = 5, point.padding = 0.5) +
+  geom_subview(data = df_pies2, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height)) +
+  theme_nothing()
+
+# ggsave("Figures/03_Map_index_01b.png", gg1b, width = 10, height = 11, dpi = 500)  # R map
+ggsave("Figures/03_Map_index_07.png", gg1b, width = 14, height = 16, dpi = 500)    # N1000 map
+
+# For finding coordinates
+# gg <- gg1 + geom_vline(xintercept = seq(9,12,0.5)) + geom_hline(yintercept = seq(58, 61, 0.5))
+# ggsave("Figures/03_Map_elements_coor.png", gg, width = 10, height = 11, dpi = 150)
+
+```
+
+
+### g. Plot SE Norway
+```{r}
+df_pies2$width = 0.3*1.3    # Sets size of pies
+df_pies2$height = 0.15*1.3  
+
+xlimits <- c(7,12)
+ylimits <- c(57.6, 60.7)
+
+sel <- with(df_pies2, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+gg2 <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_point(data = df_pies2, aes(x=Long, y=Lat), color = "black") +
+  geom_text_repel(data = df_pies2[sel,], aes(Long_pie, Lat_pie, label = Rapportnavn), point.padding = 0.85, size = 7) +
+  geom_subview(data = df_pies2[sel,], aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height)) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+# ggsave("Figures/03_Map_index_SE_01.png", gg2, width = 10, height = 11, dpi = 500)  
+# ggsave("Figures/03_Map_index_SE_02.png", gg2, width = 10, height = 11, dpi = 500) # increased pies
+# ggsave("Figures/03_Map_index_SE_03.png", gg2, width = 10, height = 11, dpi = 500)   # new map, font 5
+# ggsave("Figures/03_Map_index_SE_04.png", gg2, width = 10, height = 11, dpi = 500)     # new map, font 6
+ ggsave("Figures/03_Map_index_SE_07.png", gg2, width = 10, height = 11, dpi = 500)     # new map, font 7
+
+```
+
+
+
+## 7. Stations only (no pies) 
+```{r}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
+
+
+
+xlimits <- c(7,12)
+ylimits <- c(57.6, 60.7)
+
+sel <- with(df_pies2, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+
+gg1b <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_point(data = df_pies2, aes(x=Long, y=Lat), size = rel(3), color = "black") +
+  # geom_subview(data = df_pies2, aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies2[!sel,], aes(Long, Lat, label = Rapportnavn), size = 5, point.padding = 0.3) +
+  theme_nothing()
+
+# ggsave("Figures/03_Map_index_01b.png", gg1b, width = 10, height = 11, dpi = 500)  # R map
+ggsave("Figures/03_Map_stationsonly_02.png", gg1b, width = 14, height = 16, dpi = 500)    # N1000 map
+
+# For finding coordinates
+# gg <- gg1 + geom_vline(xintercept = seq(9,12,0.5)) + geom_hline(yintercept = seq(58, 61, 0.5))
+# ggsave("Figures/03_Map_elements_coor.png", gg, width = 10, height = 11, dpi = 150)
+
+
+gg2 <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "darkolivegreen3") +
+  geom_point(data = df_pies2[sel,], aes(x=Long, y=Lat), size = rel(3), color = "black") +
+  geom_text_repel(data = df_pies2[sel,], aes(Long, Lat, label = Rapportnavn), point.padding = 0.85, size = 7) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+ ggsave("Figures/03_Map_stationsonly_02_SE.png", gg2, width = 10, height = 11, dpi = 500)     # new map, font 7
+
 ```
 

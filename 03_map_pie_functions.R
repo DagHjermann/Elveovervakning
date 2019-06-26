@@ -63,7 +63,7 @@ make_pie <- function(measurements_present, col = colorscheme1, col_lacking = "gr
   col[!measurements_present] <- col_lacking
   pie_data <- data.frame(x = vars, y = rep(1,6))
   ggplot(pie_data, aes(x=1, y, fill=x)) + 
-    geom_bar(stat="identity", width=1) + coord_polar(theta="y") +
+    geom_bar(stat="identity", color = "black") + coord_polar(theta="y") +
     scale_fill_manual(values = col) +
     theme_void() + theme(legend.position="none") + theme_transparent()
 }
@@ -82,7 +82,7 @@ make_pie_from_colours <- function(cols){
   pie_data <- tibble(x = letters[1:N], y = rep(1,N), no = 1:N) %>% as.data.frame()
   pie_data$z = paste(pie_data$no, pie_data$cols, sep = "_")
   ggplot(pie_data, aes(x=1, y, fill = z)) + 
-    geom_bar(stat="identity", width=1) + coord_polar(theta="y") +
+    geom_bar(stat="identity", color = "black", size = 1) + coord_polar(theta="y") +
     scale_fill_manual(values = cols) +
     theme_void() + theme(legend.position="none") + theme_transparent()
 }
