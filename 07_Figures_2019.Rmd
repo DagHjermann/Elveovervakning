@@ -93,11 +93,15 @@ df_index <- df_index[1:4]
 names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")
 # Note: in 'make_indexplot()', the name "Rapportnavn" is hard-coded
 
+df_index <- df_index %>%
+  mutate(nEQR_forsuring = ifelse(nEQR_forsuring > 1, 1, nEQR_forsuring))
+
 df_index
 ```
 
 
 ## 3. Map for Methods
+### a. version 1
 ```{r}
 cols <- RColorBrewer::brewer.pal(3, "Dark2")
 
@@ -107,6 +111,7 @@ gg <- ggplot(df_stations) +
   geom_point(aes(Long, Lat, color = Målinger)) +
   scale_color_manual(values = cols) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
   theme(axis.title = element_blank(),
         legend.position = c(.68, .15))
 
@@ -117,6 +122,49 @@ if (save_plots)
 gg
 
 ```
+
+### b. version 2
+```{r}
+gg2 <- gg + theme(legend.position = "none")
+if (save_plots)  
+  ggsave("Figures/07_Map_for_methods_chapter_2.png", gg2, width = 6, height = 6.5, dpi = 500) 
+gg2
+```
+
+### c. version 3
+```{r}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+# df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations) +
+  annotation_map(map_norway, aes(long, lat), fill = "navajowhite2") +
+  geom_point(aes(Long, Lat, fill = Målinger), pch = 21, size = rel(3)) +
+  scale_fill_manual(values = cols) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        legend.position = "none")
+
+gg3 <- gg +
+  geom_text_repel(aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
+                  size = 4,
+                  point.padding = 0.2, force = 0.3)
+
+# windows(10,10)
+gg3p <- 
+  gg3 + coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_3.png", gg3p, width = 10, height = 10, dpi = 500) 
+  ggsave("Figures/07_Map_for_methods_chapter_3.svg", gg3p, width = 10, height = 10) 
+  }
+
+gg3p
+
+```
+
 
 ## 4. Pie map for Results
 
@@ -368,7 +416,51 @@ gg
 
 ```
 
-### j. Sample pie   
+### j. Entire area
+```{r, fig.height = 6, fig.width = 6}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+df_pies$width = 0.7*0.8    # Sets size of pies
+df_pies$height = 0.3*0.8   
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+sel <- with(df_pies, 
+            Long > xlimits1[1] & Long < xlimits1[2] &
+              Lat > ylimits1[1] & Lat < ylimits1[2])
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +
+  geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
+
+gg2 <- gg + 
+  geom_text_repel(data = df_pies, aes(Long, Lat, label = Shortname),
+                  size = 4,
+                  point.padding = 0.5, force = 0.3) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots){
+  ggsave("Figures/07_Map_tilstand_Entire.png", gg2, width = 11, height = 12, dpi = 500) 
+  ggsave("Figures/07_Map_tilstand_Entire.svg", gg2, width = 11, height = 12) 
+}
+
+
+# windows(10,10)
+gg2
+
+
+```
+
+### x. Sample pie   
 To glue onto the map using e.g. MS Paint  
 See  
 - 03_Map_index_sample_pie.png  
@@ -381,9 +473,13 @@ See
 label <- "Samlet eutrofieringstilstand (nEQR)"
 plotno <- "1a"
 # debugonce(make_indexplot)
-gg <- make_indexplot(df_index, "nEQR_eutrofi", label)
-if (save_plots)
+gg <- make_indexplot(df_index, "nEQR_eutrofi", label) +
+  theme_bw() +
+  theme(axis.text = element_text(color = "black"))
+if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
+}
 gg
 
 ```
@@ -393,8 +489,10 @@ gg
 label <- "Samlet forsuringstilstand (nEQR)"
 plotno <- "1b"
 gg <- make_indexplot(df_index, "nEQR_forsuring", label)
-if (save_plots)
+if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
+}
 gg
 
 ```
@@ -405,8 +503,10 @@ gg
 label <- "Samlet økologisk tilstand (nEQR)"
 plotno <- "1c"
 gg <- make_indexplot(df_index, "nEQR_ecol", label)
-if (save_plots)
+if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
+}
 gg
 
 ```
