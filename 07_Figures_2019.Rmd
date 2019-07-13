@@ -432,10 +432,6 @@ df_pies$Lat_pie <- df_pies$Lat
 df_pies$Long_pie <- df_pies$Long
 df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
 
-sel <- with(df_pies, 
-            Long > xlimits1[1] & Long < xlimits1[2] &
-              Lat > ylimits1[1] & Lat < ylimits1[2])
-
 gg <- ggplot(data=df_range, aes(x, y)) + 
   geom_blank() +
   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +

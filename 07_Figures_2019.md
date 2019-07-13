@@ -18,7 +18,7 @@ library(tidyverse)  # filter, group_by, summary, etc.
 ```
 
 ```
-## -- Attaching packages ------------------------------------------------------------------------------------------------------- tidyverse 1.2.1 --
+## -- Attaching packages --------------------------------------------------------------------------------------------- tidyverse 1.2.1 --
 ```
 
 ```
@@ -29,7 +29,7 @@ library(tidyverse)  # filter, group_by, summary, etc.
 ```
 
 ```
-## -- Conflicts ---------------------------------------------------------------------------------------------------------- tidyverse_conflicts() --
+## -- Conflicts ------------------------------------------------------------------------------------------------ tidyverse_conflicts() --
 ## x dplyr::filter() masks stats::filter()
 ## x dplyr::lag()    masks stats::lag()
 ```
@@ -165,6 +165,9 @@ df_index <- df_index[1:4]
 names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")
 # Note: in 'make_indexplot()', the name "Rapportnavn" is hard-coded
 
+df_index <- df_index %>%
+  mutate(nEQR_forsuring = ifelse(nEQR_forsuring > 1, 1, nEQR_forsuring))
+
 df_index
 ```
 
@@ -179,7 +182,7 @@ df_index
 ##  5 09.BJE1            0.880          0.427     0.427
 ##  6 10.VIK3            0.966          0.615     0.615
 ##  7 11.VIK2            0.969          0.814     0.762
-##  8 12.VIK1            0.937          1.00      0.730
+##  8 12.VIK1            0.937          1         0.730
 ##  9 13.EKS (2)*        0.703          1         0.703
 ## 10 15.EKS1*           0.739          1         0.739
 ## # ... with 31 more rows
@@ -187,6 +190,7 @@ df_index
 
 
 ## 3. Map for Methods
+### a. version 1
 
 ```r
 cols <- RColorBrewer::brewer.pal(3, "Dark2")
@@ -197,6 +201,7 @@ gg <- ggplot(df_stations) +
   geom_point(aes(Long, Lat, color = Målinger)) +
   scale_color_manual(values = cols) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
   theme(axis.title = element_blank(),
         legend.position = c(.68, .15))
 
@@ -208,6 +213,59 @@ gg
 ```
 
 ![](07_Figures_2019_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
+### b. version 2
+
+```r
+gg2 <- gg + theme(legend.position = "none")
+if (save_plots)  
+  ggsave("Figures/07_Map_for_methods_chapter_2.png", gg2, width = 6, height = 6.5, dpi = 500) 
+gg2
+```
+
+![](07_Figures_2019_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+
+### c. version 3
+
+```r
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+# df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations) +
+  annotation_map(map_norway, aes(long, lat), fill = "navajowhite2") +
+  geom_point(aes(Long, Lat, fill = Målinger), pch = 21, size = rel(3)) +
+  scale_fill_manual(values = cols) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        legend.position = "none")
+
+gg3 <- gg +
+  geom_text_repel(aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
+                  size = 4,
+                  point.padding = 0.2, force = 0.3)
+
+# windows(10,10)
+gg3p <- 
+  gg3 + coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  
+```
+
+```
+## Coordinate system already present. Adding new coordinate system, which will replace the existing one.
+```
+
+```r
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_3.png", gg3p, width = 10, height = 10, dpi = 500) 
+  ggsave("Figures/07_Map_for_methods_chapter_3.svg", gg3p, width = 10, height = 10) 
+  }
+
+gg3p
+```
+
+![](07_Figures_2019_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+
 
 ## 4. Pie map for Results
 
@@ -236,7 +294,7 @@ class_colors
 pie(rep(1,6), col = class_colors)
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
 ### b. Start making 'df_pies'  
 Also writes df_stations_vf to excel (later manipulated semi-manually and used in part 6)   
@@ -323,7 +381,7 @@ gg <- ggplot(df_pies, aes(Long, Lat)) +
 gg
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 ### e. Entire Norway  
 Need to use Mercator projection, geom_subview doesn't work with other projections
@@ -347,14 +405,14 @@ if (save_plots)
 gg
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 ### f. Check longitude values
 
 ```r
 ggplot(df_pies, aes(x = Lat)) + geom_histogram(binwidth = 0.1)
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 ### g. Nordland  
 Including annotation 
@@ -390,7 +448,7 @@ if (save_plots)
 gg
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 ### h. Trøndelag
 
@@ -440,7 +498,7 @@ if (save_plots)
 gg
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
 
 ### i. Sør-Norge
@@ -490,9 +548,49 @@ if (save_plots)
 gg
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
-### j. Sample pie   
+### j. Entire area
+
+```r
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+df_pies$width = 0.7*0.8    # Sets size of pies
+df_pies$height = 0.3*0.8   
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +
+  geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
+
+gg2 <- gg + 
+  geom_text_repel(data = df_pies, aes(Long, Lat, label = Shortname),
+                  size = 4,
+                  point.padding = 0.5, force = 0.3) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots){
+  ggsave("Figures/07_Map_tilstand_Entire.png", gg2, width = 11, height = 12, dpi = 500) 
+  ggsave("Figures/07_Map_tilstand_Entire.svg", gg2, width = 11, height = 12) 
+}
+
+
+# windows(10,10)
+gg2
+```
+
+![](07_Figures_2019_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+
+### x. Sample pie   
 To glue onto the map using e.g. MS Paint  
 See  
 - 03_Map_index_sample_pie.png  
@@ -506,13 +604,17 @@ See
 label <- "Samlet eutrofieringstilstand (nEQR)"
 plotno <- "1a"
 # debugonce(make_indexplot)
-gg <- make_indexplot(df_index, "nEQR_eutrofi", label)
-if (save_plots)
+gg <- make_indexplot(df_index, "nEQR_eutrofi", label) +
+  theme_bw() +
+  theme(axis.text = element_text(color = "black"))
+if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
+}
 gg
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 ### b. Forsuring (acidification)
 
@@ -520,8 +622,10 @@ gg
 label <- "Samlet forsuringstilstand (nEQR)"
 plotno <- "1b"
 gg <- make_indexplot(df_index, "nEQR_forsuring", label)
-if (save_plots)
+if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
+}
 gg
 ```
 
@@ -529,7 +633,7 @@ gg
 ## Warning: Removed 21 rows containing missing values (position_stack).
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
 
 
 ### c. Samlet økologisk tilstand 
@@ -538,9 +642,11 @@ gg
 label <- "Samlet økologisk tilstand (nEQR)"
 plotno <- "1c"
 gg <- make_indexplot(df_index, "nEQR_ecol", label)
-if (save_plots)
+if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
+}
 gg
 ```
 
-![](07_Figures_2019_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+![](07_Figures_2019_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
