@@ -40,7 +40,9 @@ make_indexplot <- function(data_index, varname_index,
     coord_flip() + 
     theme(axis.text.y = element_text(hjust = 0)) +
     theme(legend.position = "bottom") +
-    labs(x = "", y = scale_label)
+    labs(x = "", y = scale_label) +
+    theme_bw() +
+    theme(axis.text = element_text(color = "black"))
   gg
 }
 
