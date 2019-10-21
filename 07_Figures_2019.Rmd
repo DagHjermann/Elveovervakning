@@ -62,6 +62,21 @@ map_counties <- sf::st_transform(map_counties_utm, "+proj=longlat +ellps=WGS84")
 ```{r}
 source("03_map_pie_functions.R")
 source("04_Kvalitetselementer_søylediagram_functions.R")
+
+
+# 23b. length of 1 degree longitude (in meters), given latitude
+#      (1 degree latitude can bee assumed to be 111.5 km - it is 111.4 at 60N and 111.6 at 75N)
+#      Input = latitude (-180 - 180)
+#        From https://en.wikipedia.org/wiki/Longitude#Length_of_a_degree_of_longitude
+longitude.length <- function (lat) {
+  lat_rad <- lat*pi/180
+  a <- 6378137.0
+  b <- 6356752.3142
+  e2 <- sqrt((a^2 - b^2)/(a^2))
+  pi*a*cos(lat_rad)/(180*sqrt(1 - e2*(sin(lat_rad))^2))
+  }
+# longitude.length(60)
+
 ```
 
 
@@ -279,65 +294,179 @@ Trøndelag (zoom1) + Nordland (zoom2)
 # We must first define zoom area as "lower left" + "upper right" corner, 
 # then transform it, then 
 
-# Define area as two points, which we then transform and then extract the coordinates 
-zoom1 <- st_sfc(st_point(c(7.5, 62)), st_point(c(12.5, 64.2)), crs = "+proj=longlat") %>%
+# Define areas as two points, which we then transform and then extract the coordinates 
+
+# Trøndelag  
+zoom1 <- st_sfc(st_point(c(7.5, 62)), st_point(c(12.5, 65)), crs = "+proj=longlat") %>%
   st_transform(crs = st_crs(proj4string)) %>%
   st_coordinates()
 
-gg2 <- gg +
+# Nordland  
+zoom2 <- st_sfc(st_point(c(12.5, 65.5)), st_point(c(15.5, 67)), crs = "+proj=longlat") %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates()
+
+gg_zoom1 <- gg +
   theme(legend.position = "none",
         axis.text = element_blank()) +
   coord_sf(crs = st_crs(proj4string), xlim = zoom1[,"X"], ylim = zoom1[,"Y"])
-gg2
 
-if (save_plots)  {
-  ggsave("Figures/07_Map_for_methods_chapter_f_trond.png", gg2, width = 2.8, height = 2.8, dpi = 500) 
-  }
+gg_zoom2 <- gg +
+  theme(legend.position = "none",
+        axis.text = element_blank()) +
+  coord_sf(crs = st_crs(proj4string), xlim = zoom2[,"X"], ylim = zoom2[,"Y"])
+
+# gg_zoom2
+
+if (save_plots){
+  ggsave("Figures/07_Map_for_methods_chapter_f_zoom1.png", gg_zoom1, width = 2.8, height = 2.8, dpi = 500)
+  ggsave("Figures/07_Map_for_methods_chapter_f_zoom2.png", gg_zoom2, width = 2.5, height = 3, dpi = 500)  
+}
+
+
 ```
 
 
+### f. Version 4 with names - entire   
+Names outside Trøndelag + Nordland only, i.e. south of Lat 62
 ```{r}
+#
+# Entire country
+#
 
+# First, pick stations south of 62 
+#   (cannot do that after transformation)
+sel <- st_coordinates(df_stations_sf)[,"Y"] < 62
 
+# Transform selected stations to LAmbert and extract coordinates
+df_names <- df_stations_sf[sel,] %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates() %>%
+  data.frame()
 
+# And then we can fetch the station names
+df_names$Shortname <-  df_stations_sf[sel,]$Shortname
 
-# df <- data.frame(long = 10.66, lat = 59.92)
-gg <- ggplot(df_stations) +
-  annotation_map(map_norway, aes(long, lat), fill = "navajowhite2") +
-  geom_point(aes(Long, Lat, fill = Stasjonstype), pch = 21, size = rel(3)) +
-  scale_fill_manual(values = cols) +
-  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+gg1n <- ggplot() + 
+  geom_sf(data = map_counties, color = "grey50", fill = "navajowhite2", size = rel(0.5)) +
+  geom_sf(data = df_stations_sf, aes(fill = Stasjonstype),
+          geom = "point", pch = 21, , size = rel(1.7), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("", values = cols) +
+  # Transpose but no zoom:
+  coord_sf(crs = st_crs(proj4string)) +
+  geom_text_repel(data = df_names,
+                  aes(X, Y, label = Shortname),
+                  size = 4,
+                  color = "blue3",
+                  point.padding = 0.15, force = 0.3) +  
   theme_bw() +
   theme(axis.title = element_blank(),
-        legend.position = "none")
-gg + 
-
-ggplot() + geom_sf(data = map_counties)
-gg + geom_sf(data = map_counties, geom = "line")
-  
-gg3 <- gg +
-  geom_text_repel(aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
-                  size = 4,
-                  point.padding = 0.2, force = 0.3)
-
-# windows(10,10)
-gg3p <- 
-  gg3 + coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  
+        axis.text = element_blank(),
+        legend.text = element_text(size = 13),
+        legend.position = c(.68, .1))
+# gg1n
 
 if (save_plots)  {
-  ggsave("Figures/07_Map_for_methods_chapter_3.png", gg3p, width = 10, height = 10, dpi = 500) 
-  ggsave("Figures/07_Map_for_methods_chapter_3.svg", gg3p, width = 10, height = 10) 
+  ggsave("Figures/07_Map_for_methods_chapter_fn.png", gg1n, width = 11, height = 12, dpi = 500) 
+  
   }
 
-gg3p
+```
 
+### g. Version 4 with names - zoom region 1     
+Ie Trøndelag  
+```{r}
+#
+# Entire country
+#
 
+# First, pick stations in zoom region
+sel <- st_coordinates(df_stations_sf)[,"Y"] > 62 &
+  st_coordinates(df_stations_sf)[,"Y"] < 65
+
+# Transform selected stations to LAmbert and extract coordinates
+df_names <- df_stations_sf[sel,] %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates() %>%
+  data.frame()
+
+# And then we can fetch the station names
+df_names$Shortname <-  df_stations_sf[sel,]$Shortname
+
+gg1n <- ggplot() + 
+  geom_sf(data = map_counties, color = "grey50", fill = "navajowhite2", size = rel(0.5)) +
+  geom_sf(data = df_stations_sf, aes(fill = Stasjonstype),
+          geom = "point", pch = 21, , size = rel(2.5), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("", values = cols) +
+  # Zoom region given here
+  coord_sf(crs = st_crs(proj4string), xlim = zoom1[,"X"], ylim = zoom1[,"Y"]) +
+  geom_text_repel(data = df_names,
+                  aes(X, Y, label = Shortname),
+                  size = 6,
+                  color = "blue3",
+                  point.padding = 0.35, force = 0.3) +  
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        legend.position = "none")                # no legend needed
+# gg1n
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_fn_z1.png", gg1n, width = 11, height = 12, dpi = 500) 
+  
+  }
 
 ```
 
 
-## 4. Pie map for Results
+### g. Version 4 with names - zoom region 2     
+Ie Nordland  
+```{r}
+#
+# Entire country
+#
 
+# First, pick stations in zoom region
+sel <- st_coordinates(df_stations_sf)[,"Y"] > 65
+
+# Transform selected stations to LAmbert and extract coordinates
+df_names <- df_stations_sf[sel,] %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates() %>%
+  data.frame()
+
+# And then we can fetch the station names
+df_names$Shortname <-  df_stations_sf[sel,]$Shortname
+
+gg1n <- ggplot() + 
+  geom_sf(data = map_counties, color = "grey50", fill = "navajowhite2", size = rel(0.5)) +
+  geom_sf(data = df_stations_sf, aes(fill = Stasjonstype),
+          geom = "point", pch = 21, , size = rel(2.5), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("", values = cols) +
+  # Zoom region given here
+  coord_sf(crs = st_crs(proj4string), xlim = zoom2[,"X"], ylim = zoom2[,"Y"]) +
+  geom_text_repel(data = df_names,
+                  aes(X, Y, label = Shortname),
+                  size = 6,
+                  color = "blue3",
+                  point.padding = 0.35, force = 0.3) +  
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        legend.position = "none")                # no legend needed
+# gg1n
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_fn_z2.png", gg1n, width = 11, height = 12, dpi = 500) 
+  
+  }
+
+```
+
+## 4. Pie map for Results
 
 ### a. Define df_range and colours
 ```{r}
@@ -451,6 +580,8 @@ if (save_plots)
 gg
 
 ```
+
+
 ### f. Check longitude values
 ```{r, fig.height = 3, fig.width = 5}
 ggplot(df_pies, aes(x = Lat)) + geom_histogram(binwidth = 0.1)
@@ -462,6 +593,9 @@ Including annotation
 ```{r, fig.height = 6, fig.width = 6}
 xlimits <- c(10, 20)
 ylimits <- c(65.3, 67.3)
+
+# Aspect ratio of map = ratio of (length of 1 latitude)/(length of 1 longitude)
+aspectratio <- 111500/longitude.length(mean(ylimits))
 
 df_pies$width = 0.7*0.6    # Sets size of pies
 df_pies$height = 0.3*0.6   
@@ -475,18 +609,18 @@ gg <- ggplot(data=df_range, aes(x, y)) +
   annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
   geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
   geom_text_repel(data = df_pies[sel,], aes(Long + 0.2, Lat, label = Shortname),  # 0.2: move start point of lines to right
-                  point.padding = 0.1,   # Avoid overølap with points
-                  nudge_x = 0.5,         # Nudge lables to the East
+                  point.padding = 0.1,   # Avoid overlap with points
+                  nudge_x = 0.5,         # Nudge labels to the East
                   direction = "y",       # Move in E-W direction
                   hjust = 0,             # Line is anchored at the left side of the text strings
                   size = 8) +            # Font size
-  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
   theme_nothing()
 
 if (save_plots)
   ggsave("Figures/07_Map_tilstand_02_Nordland.png", gg, width = 11, height = 7, dpi = 500) 
 
-gg
+# gg
 
 ```
 
@@ -494,6 +628,9 @@ gg
 ```{r, fig.height = 6, fig.width = 8}
 xlimits <- c(5, 15)
 ylimits <- c(62.5, 65)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
 
 df_pies$width = 0.7*0.6    # Sets size of pies
 df_pies$height = 0.3*0.6   
@@ -528,7 +665,7 @@ gg <- ggplot(data=df_range, aes(x, y)) +
                   aes(Long + 0.15, Lat, label = Shortname),
                   point.padding = 0.1, nudge_x = 0.2,
                   direction = "y", hjust = 0, size = 5) +
-  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
   theme_nothing()
 
 if (save_plots)
@@ -543,6 +680,9 @@ gg
 ```{r, fig.height = 6, fig.width = 6}
 xlimits <- c(4.5, 13)
 ylimits <- c(57.8, 61.8)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
 
 df_pies$width = 0.7*0.6    # Sets size of pies
 df_pies$height = 0.3*0.6   
@@ -576,7 +716,7 @@ gg <- ggplot(data=df_range, aes(x, y)) +
                   aes(Long_pie - 0.15, Lat_pie, label = Shortname),
                   point.padding = 0.1, nudge_x = - 0.2,
                   direction = "y", hjust = 1, size = 5) +
-  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
   theme_nothing()
 
 if (save_plots)
@@ -586,7 +726,7 @@ gg
 
 ```
 
-### j. Entire area
+### j. Entire area with names
 ```{r, fig.height = 6, fig.width = 6}
 
 xlimits <- c(3, 20)
@@ -626,12 +766,301 @@ gg2
 
 ```
 
+### j. Entire area, names S of Trøndelag
+```{r, fig.height = 6, fig.width = 6}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+df_pies$width = 0.7*0.8    # Sets size of pies
+df_pies$height = 0.3*0.8   
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +
+  geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
+
+gg2 <- gg + 
+  geom_text_repel(data = df_pies %>% , aes(Long, Lat, label = Shortname),
+                  size = 4,
+                  point.padding = 0.5, force = 0.3) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots){
+  ggsave("Figures/07_Map_tilstand_Entire.png", gg2, width = 11, height = 12, dpi = 500) 
+  ggsave("Figures/07_Map_tilstand_Entire.svg", gg2, width = 11, height = 12) 
+}
+
+
+# windows(10,10)
+gg2
+
+
+```
+
 ### x. Sample pie   
 To glue onto the map using e.g. MS Paint  
 See  
 - 03_Map_index_sample_pie.png  
 - 03_Map_index_sample_pie2.png
 
+## 5. Plots using map with counties (fylke)
+
+### a1. Get coordintaes of county map  
+```{r}
+df_counties <- st_coordinates(map_counties) %>% as.data.frame()
+
+# head(df_counties)
+# length(unique(df_counties[,"L1"]))
+# length(unique(df_counties[,"L2"]))
+# length(unique(df_counties[,"L3"]))
+
+colnames(df_counties) <- c("long", "lat", "L1", "group", "id")
+
+# table(df_counties$L1)
+# table(df_counties$id)
+
+```
+
+### a2. Build up background  
+```{r}
+ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  geom_polygon()
+
+gg1 <- gg2 <- gg3 <- 
+  ggplot(data=df_range, aes(x, y)) + 
+  geom_blank()
+for (i in 1:18){
+  gg1 <- gg1 + 
+    geom_path(data = df_counties %>% filter(id %in% i), aes(long, lat, group = group))
+  gg2 <- gg2 + 
+    geom_path(data = df_counties %>% filter(L1 == 1 & id %in% i), aes(long, lat, group = group))
+  gg3 <- gg3 + 
+    geom_polygon(data = df_counties %>% filter(L1 == 1 & id %in% i), 
+                 aes(long, lat, group = group), fill = terrain.colors(10)[7], color = "grey40")
+}
+
+gg1
+gg2
+gg3
+
+gg_start <- gg3
+# gg_start
+
+#  geom_path(data = df %>% filter(L1 == 1 & group == 1), aes(long, lat, group = group))
+
+#  annotation_map(df2, aes(x, y, color = fylkesnavn))
+
+
+#  annotation_map(df, aes(X, Y), fill = "navajowhite2")
+#  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2")
+
+```
+
+### g. Nordland  
+Including annotation 
+
+```{r, fig.height = 6, fig.width = 6}
+xlimits <- c(10, 20)
+ylimits <- c(65.3, 67.3)
+
+# Aspect ratio of map = ratio of (length of 1 latitude)/(length of 1 longitude)
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+gg <- gg_start +
+  geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel,], aes(Long + 0.2, Lat, label = Shortname),  # 0.2: move start point of lines to right
+                  point.padding = 0.1,   # Avoid overlap with points
+                  nudge_x = 0.5,         # Nudge labels to the East
+                  direction = "y",       # Move in E-W direction
+                  hjust = 0,             # Line is anchored at the left side of the text strings
+                  color = "blue4",
+                  size = 8) +            # Font size
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave("Figures/07_Map_tilstand_02_Nordland_f.png", gg, width = 11, height = 7, dpi = 500) 
+
+# gg
+
+```
+
+
+### h. Trøndelag
+```{r, fig.height = 6, fig.width = 8}
+xlimits <- c(5, 15)
+ylimits <- c(62.5, 65)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+# We divide up pie labels, so some are pushed to the West, other to the East
+sel_w <- substr(df_pies$Shortname,1,2) %in% c("21","24","22", "27", "30", "33", "39", "41")  # to West
+sel_ws <- substr(df_pies$Shortname,1,2) %in% c("26")    # To East and a little south
+sel_es <- substr(df_pies$Shortname,1,2) %in% c("38")    # To East and a little south
+sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
+
+# Version in part 4:
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+
+gg <- gg_start +
+  geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel & sel_w,], 
+                  aes(Long - 0.15, Lat, label = Shortname), 
+                  point.padding = 0.1, nudge_x = -0.2, 
+                  direction = "y", hjust = 1, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_ws,], 
+                  aes(Long - 0.15, Lat - 0.05, label = Shortname), 
+                  point.padding = 0.1, nudge_x = 0.05, nudge_y = -0.1, 
+                  direction = "y", hjust = 1, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_es,],
+                  aes(Long + 0.07, Lat - 0.05, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.02, nudge_y = -0.1, 
+                  direction = "y", hjust = 0, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_e,],
+                  aes(Long + 0.15, Lat, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.2,
+                  direction = "y", hjust = 0, size = 5, color = "blue4") +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave("Figures/07_Map_tilstand_03_Trøndelag_f.png", gg, width = 11, height = 7, dpi = 500) 
+
+# gg
+
+```
+
+
+### i. Sør-Norge
+```{r, fig.height = 6, fig.width = 6}
+xlimits <- c(4.5, 13)
+ylimits <- c(57.8, 61.8)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+sel_w <- substr(df_pies$Shortname,1,2) %in% c("12", "01", "02")  # to West
+# sel_ws <- substr(df_pies$Shortname,1,2) %in% c("26")    # To East and a little south
+# sel_es <- substr(df_pies$Shortname,1,2) %in% c("38")    # To East and a little south
+sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
+sel_e <- !sel_w
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+# Version in part 4
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+
+gg <- gg_start +
+  geom_subview(data = df_pies[sel,], aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel & sel_e,],
+                  aes(Long_pie + 0.15, Lat_pie, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.2,
+                  direction = "y", hjust = 0, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_w,],
+                  aes(Long_pie - 0.15, Lat_pie, label = Shortname),
+                  point.padding = 0.1, nudge_x = - 0.2,
+                  direction = "y", hjust = 1, size = 5, color = "blue4") +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave("Figures/07_Map_tilstand_04_Sør-Norge_f.png", gg, width = 9.5, height = 9, dpi = 500) 
+
+# gg
+
+```
+
+
+### j. Entire area with names   
+But names only south of Trøndelag  
+```{r, fig.height = 6, fig.width = 6}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+df_pies$width = 0.7*0.8    # Sets size of pies
+df_pies$height = 0.3*0.8   
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+
+# Version in part 4
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +
+
+gg <- gg_start +
+  geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
+
+gg2 <- gg + 
+  geom_text_repel(data = df_pies %>% filter(Lat < 62),    # names only south of Trøndelag 
+                  aes(Long, Lat, label = Shortname),
+                  size = 4,
+                  color = "blue4",
+                  point.padding = 0.5, force = 0.3) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots){
+  ggsave("Figures/07_Map_tilstand_Entire_f.png", gg2, width = 11, height = 12, dpi = 500) 
+  ggsave("Figures/07_Map_tilstand_Entire_f.svg", gg2, width = 11, height = 12) 
+}
+
+
+# windows(10,10)
+# gg2
+
+
+```
 
 ## 5. Bar plots
 ### a. Eutrofiering
