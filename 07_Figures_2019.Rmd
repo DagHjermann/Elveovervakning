@@ -10,8 +10,8 @@ output:
 
 Put pies on maps    
 
-## 0. Prerequisites
-### a. Libs + map
+## 1. Prerequisites
+### a1. Libs + map
 ```{r}
 library(tidyverse)  # filter, group_by, summary, etc.
 library(gridGraphics)
@@ -29,12 +29,34 @@ rm(norway_coast_longlat)
 library(mapproj)    # mapproject
 library(ggrepel)    # geom_text_repel()
 library(sp)         # SpatialPoints(), CRS(), spTransform()
+library(sf)         # st_read
 library(ggimage)    # geom_subview(), theme_transparent()
 
 save_plots <- TRUE
-save_plots <- FALSE
+# save_plots <- FALSE
 
 ```
+
+### a2. Map with counties (fylke)  
+```{r}
+# 
+# Gotten from Geonorge ("Norske fylker og kommuner illustrasjonsdata 2019 (klippet etter kyst)")
+#   https://kartkatalog.geonorge.no/metadata/cb02ab77-d3e6-4500-8a92-ea67367e7734 
+#   https://nedlasting.geonorge.no/geonorge/Generell/AdmEnh_klippet_etter_kyst2019.zip  
+map_counties_utm <- sf::st_read("Data_input/2019/AdmEnh_klippet_etter_kyst2019/Fylker19.geojson")
+# UTM zone 33
+# plot(map_counties_utm)
+
+# Transform data to to long-lat
+map_counties <- sf::st_transform(map_counties_utm, "+proj=longlat +ellps=WGS84")
+
+# plot(map_counties)
+#df <- sf::st_coordinates(map_counties)
+#df[1:8,]
+
+
+```
+
 
 ### b. Functions used
 ```{r}
@@ -74,7 +96,7 @@ df_stations <- df_stations_all %>%
             Lat = mean(Lat),
             Index_ecol = first(Index_ecol),
             Class_chem = first(Class_chem)) %>%
-  mutate(Målinger = case_when(
+  mutate(Stasjonstype = case_when(
     !is.na(Index_ecol) & Class_chem %in% "i.d." ~ "Økologisk tilstand",
     !is.na(Index_ecol) & Class_chem != "i.d." ~ "Økologisk og kjemisk tilstand",
     TRUE ~ "?")
@@ -99,17 +121,55 @@ df_index <- df_index %>%
 df_index
 ```
 
+### Add positions of long-term series ('lange tidsserier')  
+df_stations_incl_long
+```{r}
+df_long <- read_excel("Data_input/2019/Stasjoner fra Lange tidsserier.xlsx") %>%
+  rename(Long = Longitude, Lat = Latitude, Shortname = StationCode) %>%
+  select(Shortname, Long, Lat) %>%
+  mutate(Stasjonstype = "Lange tidsserier")
+
+# Test plot
+gg <- ggplot(df_long) +
+    annotation_map(map_norway, aes(long, lat), fill = terrain.colors(10)[7]) +
+  geom_point(aes(Long, Lat, color = Stasjonstype)) +
+  scale_color_manual(values = cols) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        legend.position = c(.68, .15))
+
+# gg
+
+df_stations_incl_long  <- bind_rows(
+  df_stations, 
+  df_long
+)
+
+df_stations_incl_long$Stasjonstype <- factor(
+  df_stations_incl_long$Stasjonstype,
+  levels = c("Økologisk og kjemisk tilstand",
+             "Økologisk tilstand",
+             "Lange tidsserier")
+)
+  
+```
+
 
 ## 3. Map for Methods
 ### a. version 1
 ```{r}
-cols <- RColorBrewer::brewer.pal(3, "Dark2")
+# Old version
+# cols <- RColorBrewer::brewer.pal(3, "Dark2")
+
+# New version (should be "photocopy safe")
+cols <- RColorBrewer::brewer.pal(4, "Spectral")[1:3]
 
 # df <- data.frame(long = 10.66, lat = 59.92)
-gg <- ggplot(df_stations) +
+gg <- ggplot(df_stations_incl_long) +
     annotation_map(map_norway, aes(long, lat), fill = terrain.colors(10)[7]) +
-  geom_point(aes(Long, Lat, color = Målinger)) +
-  scale_color_manual(values = cols) +
+  geom_point(aes(Long, Lat, fill = Stasjonstype), pch = 21) +
+  scale_fill_manual(values = cols) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
   theme_bw() +
   theme(axis.title = element_blank(),
@@ -131,21 +191,23 @@ if (save_plots)
 gg2
 ```
 
-### c. version 3
+### c. version 3  
 ```{r}
 
 xlimits <- c(3, 20)
 ylimits <- c(58, 67.3)
 
 # df <- data.frame(long = 10.66, lat = 59.92)
-gg <- ggplot(df_stations) +
+gg <- ggplot(df_stations_incl_long) +
   annotation_map(map_norway, aes(long, lat), fill = "navajowhite2") +
-  geom_point(aes(Long, Lat, fill = Målinger), pch = 21, size = rel(3)) +
+  geom_point(aes(Long, Lat, fill = Stasjonstype), pch = 21, size = rel(3)) +
   scale_fill_manual(values = cols) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
   theme_bw() +
   theme(axis.title = element_blank(),
-        legend.position = "none")
+        legend.position = "none") 
+gg
+
 
 gg3 <- gg +
   geom_text_repel(aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
@@ -162,6 +224,114 @@ if (save_plots)  {
   }
 
 gg3p
+
+```
+### d. Version 4: county map   
+Use county map from GeoNorge (see 1a2)  
+```{r, warning = FALSE}
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+
+# Tried adding 'df_stations' using geom_point()  
+#    geom_point(data = df_stations, aes(Long, Lat))
+# but those points ended up in the Atlantic due to the Lambert projection  
+# Had to 1) Use st_as_sf() to turn df_stations into a 'proper spatial' (sf) object,
+#   then 2) plot it ising geom_sf(), not geom_point
+
+# 1
+df_stations_sf <- st_as_sf(df_stations_incl_long, coords = c("Long", "Lat"),
+  crs = "+proj=longlat +ellps=WGS84", agr = "constant")
+
+# Element line must be a element_line object.
+
+# Projection used in map
+proj4string <- "+proj=laea +lat_0=64 +lon_0=12 +ellps=GRS80 +units=m +no_defs "
+
+# 2
+gg <- ggplot() + 
+  geom_sf(data = map_counties, fill = "navajowhite2", size = rel(0.2)) +
+  geom_sf(data = df_stations_sf, geom = "point", pch = 21, aes(fill = Stasjonstype), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("Stasjoner", values = cols) +
+  coord_sf(crs = st_crs(proj4string)) +
+  theme_bw() +
+  theme(axis.title = element_blank())
+
+gg1 <- gg + 
+  theme(legend.position = c(.68, .15))
+gg1
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_f.png", gg1, width = 6, height = 6.5, dpi = 500) 
+  }
+```
+
+### e. Version 4 detail maps  
+Trøndelag (zoom1) + Nordland (zoom2)
+```{r}
+
+# Note: adding just limits as (xlim, ylim), as below, doesn't work
+
+# gg2 <- gg +
+#     coord_sf(crs = st_crs(proj4string), xlim = c(7.5, 12.5), ylim = c(62, 64.2))
+
+# We must first define zoom area as "lower left" + "upper right" corner, 
+# then transform it, then 
+
+# Define area as two points, which we then transform and then extract the coordinates 
+zoom1 <- st_sfc(st_point(c(7.5, 62)), st_point(c(12.5, 64.2)), crs = "+proj=longlat") %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates()
+
+gg2 <- gg +
+  theme(legend.position = "none",
+        axis.text = element_blank()) +
+  coord_sf(crs = st_crs(proj4string), xlim = zoom1[,"X"], ylim = zoom1[,"Y"])
+gg2
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_f_trond.png", gg2, width = 2.8, height = 2.8, dpi = 500) 
+  }
+```
+
+
+```{r}
+
+
+
+
+# df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations) +
+  annotation_map(map_norway, aes(long, lat), fill = "navajowhite2") +
+  geom_point(aes(Long, Lat, fill = Stasjonstype), pch = 21, size = rel(3)) +
+  scale_fill_manual(values = cols) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        legend.position = "none")
+gg + 
+
+ggplot() + geom_sf(data = map_counties)
+gg + geom_sf(data = map_counties, geom = "line")
+  
+gg3 <- gg +
+  geom_text_repel(aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
+                  size = 4,
+                  point.padding = 0.2, force = 0.3)
+
+# windows(10,10)
+gg3p <- 
+  gg3 + coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_3.png", gg3p, width = 10, height = 10, dpi = 500) 
+  ggsave("Figures/07_Map_for_methods_chapter_3.svg", gg3p, width = 10, height = 10) 
+  }
+
+gg3p
+
+
 
 ```
 
