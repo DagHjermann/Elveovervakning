@@ -8,10 +8,19 @@ output:
 
 ---
 
-Put pies on maps    
+Plots for report 2019   
+* Overview maps (types of stations) for Methods chapter (section 3)  
+* Pies (for chemical/ecological 'tilstand') on maps for Results (sections 4-5)   
+* Bar plots for 'tilstand' (section 6)  
 
-## 1. Prerequisites
-### a1. Libs + map
+First round of maps/figures (moved to Figures/07_Old):  
+* No county borders   
+* Not including "lange tidsserier" ('long time-series' stations)  
+* Somewhat different colors etc.    
+
+## 1. Prerequisites  
+
+### a1. Libs + map  
 ```{r}
 library(tidyverse)  # filter, group_by, summary, etc.
 library(gridGraphics)
@@ -123,20 +132,39 @@ xtabs(~addNA(Class_chem), df_stations)
 ```
 
 ### c. Read data for bar plots  
+* df_index is the actual data  
+* df_index_barplot will be used for bar plots (see remark in comments)
 ```{r}
-df_index <- read_excel("Data_input/2019/KartOgFigurgrunnlag_TilDag.xlsx", sheet = "Figurgrunnlag", na = "NA")
-df_index <- df_index[1:4]
-
+df_index <- read_excel("Data_input/2019/KartOgFigurgrunnlag_TilDag.xlsx", sheet = "Figurgrunnlag",
+                       range = "A1:D80",
+                       na = "NA", col_types = c("text", rep("numeric",3))) 
 names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")
+
+df_index <- df_index %>% filter(!is.na(Rapportnavn))
+
 # Note: in 'make_indexplot()', the name "Rapportnavn" is hard-coded
 
 df_index <- df_index %>%
   mutate(nEQR_forsuring = ifelse(nEQR_forsuring > 1, 1, nEQR_forsuring))
 
 df_index
+
+# "27.ORK1" has a missing value for 'nEQR_ecol', but it is supposed to be 'Moderate' 
+#   with 'unapplicable' nEQR_ecol. We here setr it to 0.5 jsut to have something to plot 
+df_index_barplot <- df_index %>%
+  mutate(nEQR_ecol =
+           case_when(Rapportnavn %in% "27.ORK1" ~ 0.5,
+                     TRUE ~ nEQR_ecol)
+         ) %>%
+  mutate(Label =
+           case_when(Rapportnavn %in% "27.ORK1" ~ paste(Rapportnavn, "(nEQR-verdi ikke gjeldende)"),
+                     TRUE ~ Rapportnavn)
+         )
+  
+
 ```
 
-### Add positions of long-term series ('lange tidsserier')  
+### d. Add positions of long-term series ('lange tidsserier')  
 df_stations_incl_long
 ```{r}
 df_long <- read_excel("Data_input/2019/Stasjoner fra Lange tidsserier.xlsx") %>%
@@ -146,7 +174,7 @@ df_long <- read_excel("Data_input/2019/Stasjoner fra Lange tidsserier.xlsx") %>%
 
 # Test plot
 gg <- ggplot(df_long) +
-    annotation_map(map_norway, aes(long, lat), fill = terrain.colors(10)[7]) +
+    annotation_map(map_norway, aes(long, lat), fill = "navajowhite") +
   geom_point(aes(Long, Lat, color = Stasjonstype)) +
   scale_color_manual(values = cols) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
@@ -182,7 +210,7 @@ cols <- RColorBrewer::brewer.pal(4, "Spectral")[1:3]
 
 # df <- data.frame(long = 10.66, lat = 59.92)
 gg <- ggplot(df_stations_incl_long) +
-    annotation_map(map_norway, aes(long, lat), fill = terrain.colors(10)[7]) +
+    annotation_map(map_norway, aes(long, lat), fill = "navajowhite") +
   geom_point(aes(Long, Lat, fill = Stasjonstype), pch = 21) +
   scale_fill_manual(values = cols) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
@@ -327,7 +355,8 @@ if (save_plots){
 ```
 
 
-### f. Version 4 with names - entire   
+### f. Version 5: with names  
+Otherwise as 4 (ie with county lines)  
 Names outside Trøndelag + Nordland only, i.e. south of Lat 62
 ```{r}
 #
@@ -374,7 +403,7 @@ if (save_plots)  {
 
 ```
 
-### g. Version 4 with names - zoom region 1     
+### g. Version 5 zoom region 1     
 Ie Trøndelag  
 ```{r}
 #
@@ -421,7 +450,7 @@ if (save_plots)  {
 ```
 
 
-### g. Version 4 with names - zoom region 2     
+### h. Version 5 zoom region 2     
 Ie Nordland  
 ```{r}
 #
@@ -570,7 +599,7 @@ df_pies$height = 0.3*1.2
 
 gg <- ggplot(data=df_range, aes(x, y)) + 
   geom_blank() +
-  annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
   geom_subview(data = df_pies, aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
   theme_nothing()
 
@@ -606,7 +635,7 @@ sel <- with(df_pies,
 
 gg <- ggplot(data=df_range, aes(x, y)) + 
   geom_blank() +
-  annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
   geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
   geom_text_repel(data = df_pies[sel,], aes(Long + 0.2, Lat, label = Shortname),  # 0.2: move start point of lines to right
                   point.padding = 0.1,   # Avoid overlap with points
@@ -647,7 +676,7 @@ sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
 
 gg <- ggplot(data=df_range, aes(x, y)) + 
   geom_blank() +
-  annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
   geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
   geom_text_repel(data = df_pies[sel & sel_w,], 
                   aes(Long - 0.15, Lat, label = Shortname), 
@@ -706,7 +735,7 @@ df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
 
 gg <- ggplot(data=df_range, aes(x, y)) + 
   geom_blank() +
-  annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
   geom_subview(data = df_pies[sel,], aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height)) +
   geom_text_repel(data = df_pies[sel & sel_e,],
                   aes(Long_pie + 0.15, Lat_pie, label = Shortname),
@@ -788,7 +817,8 @@ gg <- ggplot(data=df_range, aes(x, y)) +
   geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
 
 gg2 <- gg + 
-  geom_text_repel(data = df_pies %>% , aes(Long, Lat, label = Shortname),
+  geom_text_repel(data = df_pies %>% filter(Lat < 62),   #names S of Trøndelag only
+                  aes(Long, Lat, label = Shortname),
                   size = 4,
                   point.padding = 0.5, force = 0.3) +
   coord_cartesian(xlim = xlimits, ylim = ylimits) +
@@ -846,7 +876,7 @@ for (i in 1:18){
     geom_path(data = df_counties %>% filter(L1 == 1 & id %in% i), aes(long, lat, group = group))
   gg3 <- gg3 + 
     geom_polygon(data = df_counties %>% filter(L1 == 1 & id %in% i), 
-                 aes(long, lat, group = group), fill = terrain.colors(10)[7], color = "grey40")
+                 aes(long, lat, group = group), fill = "navajowhite", color = "grey40")
 }
 
 gg1
@@ -885,7 +915,7 @@ sel <- with(df_pies,
 
 # gg <- ggplot(data=df_range, aes(x, y)) + 
 #   geom_blank() +
-#   annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
 gg <- gg_start +
   geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
   geom_text_repel(data = df_pies[sel,], aes(Long + 0.2, Lat, label = Shortname),  # 0.2: move start point of lines to right
@@ -930,7 +960,7 @@ sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
 # Version in part 4:
 # gg <- ggplot(data=df_range, aes(x, y)) + 
 #   geom_blank() +
-#   annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
 
 gg <- gg_start +
   geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
@@ -992,7 +1022,7 @@ df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
 # Version in part 4
 # gg <- ggplot(data=df_range, aes(x, y)) + 
 #   geom_blank() +
-#   annotation_map(map_norway_h, aes(long, lat), fill = terrain.colors(10)[7]) +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
 
 gg <- gg_start +
   geom_subview(data = df_pies[sel,], aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height)) +
@@ -1062,13 +1092,14 @@ if (save_plots){
 
 ```
 
-## 5. Bar plots
+## 6. Bar plots
 ### a. Eutrofiering
 ```{r, fig.height=7}
 label <- "Samlet eutrofieringstilstand (nEQR)"
 plotno <- "1a"
 # debugonce(make_indexplot)
-gg <- make_indexplot(df_index, "nEQR_eutrofi", label) +
+
+gg <- make_indexplot(df_index_barplot, "nEQR_eutrofi", label) +
   theme_bw() +
   theme(axis.text = element_text(color = "black"))
 if (save_plots){
@@ -1083,7 +1114,7 @@ gg
 ```{r, fig.height=7}
 label <- "Samlet forsuringstilstand (nEQR)"
 plotno <- "1b"
-gg <- make_indexplot(df_index, "nEQR_forsuring", label)
+gg <- make_indexplot(df_index_barplot, "nEQR_forsuring", label)
 if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
   ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
@@ -1097,11 +1128,31 @@ gg
 ```{r, fig.height=7}
 label <- "Samlet økologisk tilstand (nEQR)"
 plotno <- "1c"
-gg <- make_indexplot(df_index, "nEQR_ecol", label)
+gg1 <- make_indexplot(df_index_barplot, "nEQR_ecol", label)
+gg2 <- gg1 + 
+  # Add all-white label (to cover the vertical lines)
+  # (this is a woraround, as 'colour' seems to control both text and border colour...)
+  geom_label(aes(Rapportnavn, Indeksverdi, label = Label),
+             hjust = 0, nudge_y = 0.005, nudge_x = 0, color = "white", fill = "white") +
+  # Add text
+  geom_text(aes(Rapportnavn, Indeksverdi, label = Label),
+             hjust = 0, nudge_y = 0.005, nudge_x = 0)
+gg3 <- gg2 + 
+  theme(axis.text.y = element_blank())
+#gg3
+
 if (save_plots){
-  ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
-  ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
+  ggsave(paste0("Figures/07_", plotno, "_", label, "_ver1.png"), gg1, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, "_ver1.svg"), gg1, width = 8.5, height = 10.5)
+  ggsave(paste0("Figures/07_", plotno, "_", label, "_ver2.png"), gg2, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, "_ver2.svg"), gg2, width = 8.5, height = 10.5)
+  ggsave(paste0("Figures/07_", plotno, "_", label, "_ver3.png"), gg3, width = 8.5, height = 10.5, dpi = 500)
+  ggsave(paste0("Figures/07_", plotno, "_", label, "_ver3.svg"), gg3, width = 8.5, height = 10.5)
 }
-gg
+
+gg1
+gg2
+gg3
+
 
 ```
