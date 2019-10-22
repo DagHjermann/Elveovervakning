@@ -36,7 +36,8 @@ make_indexplot <- function(data_index, varname_index,
     geom_hline(yintercept = 0.6, size = rel(1), linetype = 1) +
     geom_col(width = 0.75) +
     scale_fill_manual("Tilstandsklasse", values = class_colors) +
-    scale_y_continuous(minor_breaks = seq(0, 1, 0.2), breaks = seq(0, 1, 0.2)) +
+    scale_y_continuous(minor_breaks = seq(0, 1, 0.2), breaks = seq(0, 1, 0.2), 
+                       limits = c(0,1.08), expand = c(0,0)) +         # limits + expand: no space on left side + a little space on right side 
     coord_flip() + 
     theme(axis.text.y = element_text(hjust = 0)) +
     theme(legend.position = "bottom") +
