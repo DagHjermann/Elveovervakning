@@ -165,12 +165,15 @@ df_index_barplot <- df_index %>%
 ```
 
 ### d. Add positions of long-term series ('lange tidsserier')  
-df_stations_incl_long
+df_stations_incl_long  
+* This is used for the "Methods" map, i.e. section 3  
 ```{r}
 df_long <- read_excel("Data_input/2019/Stasjoner fra Lange tidsserier.xlsx") %>%
-  rename(Long = Longitude, Lat = Latitude, Shortname = StationCode) %>%
+  rename(Long = Longitude, Lat = Latitude, Shortname = Rapportnavn) %>%
   select(Shortname, Long, Lat) %>%
-  mutate(Stasjonstype = "Lange tidsserier")
+  mutate(Stasjonstype = "Lange tidsserier"#,
+         #Shortname = sub("^Gruve.", "", Shortname)
+         )
 
 # Test plot
 gg <- ggplot(df_long) +
@@ -189,13 +192,45 @@ df_stations_incl_long  <- bind_rows(
   df_long
 )
 
+  
+```
+
+```{r}
+df_stations_incl_long$Shortname
+```
+
+
+### e. Summarise some of the stations  
+```{r}
+df_stations_incl_long <- df_stations_incl_long %>%
+  # Redefine Shortname
+  mutate(Shortname = 
+           case_when(Shortname %in% c("Gruve.O5", "26.ORK2*") ~ "26.ORK2/O5",
+                     Shortname %in% c("Gruve.O3", "Gruve.O4", "25.ORK3*") ~ "26.ORK3/O3/O4",
+                     TRUE ~ Shortname)
+  ) %>%
+  # Redefine Stasjonstype
+  mutate(
+    Stasjonstype = 
+      case_when(Shortname %in% c("26.ORK2/O5", "26.ORK3/O3/O4") ~ "Økologisk tilstand / lange tidsserier",
+                TRUE ~ Stasjonstype)
+         ) %>%
+  # Summarise
+  group_by(Shortname, Stasjonstype) %>%
+  summarise(Long = mean(Long), Lat = mean(Lat)) 
+
+
+# Set Stasjonstype as factor, to get correct order in plots
 df_stations_incl_long$Stasjonstype <- factor(
   df_stations_incl_long$Stasjonstype,
   levels = c("Økologisk og kjemisk tilstand",
              "Økologisk tilstand",
-             "Lange tidsserier")
+             "Lange tidsserier",
+             "Økologisk tilstand / lange tidsserier")
 )
+           
   
+
 ```
 
 
@@ -206,13 +241,17 @@ df_stations_incl_long$Stasjonstype <- factor(
 # cols <- RColorBrewer::brewer.pal(3, "Dark2")
 
 # New version (should be "photocopy safe")
-cols <- RColorBrewer::brewer.pal(4, "Spectral")[1:3]
+# cols <- RColorBrewer::brewer.pal(4, "Spectral")[1:3]
+
+cols <- c("black", "grey50", "white", "grey50")
+shapes <- c(21, 21, 21, 24)   # circle, circle, circle, and triangle (see ?points)
 
 # df <- data.frame(long = 10.66, lat = 59.92)
 gg <- ggplot(df_stations_incl_long) +
     annotation_map(map_norway, aes(long, lat), fill = "navajowhite") +
-  geom_point(aes(Long, Lat, fill = Stasjonstype), pch = 21) +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), pch = 21) +
   scale_fill_manual(values = cols) +
+  scale_shape_manual(values = ) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
   theme_bw() +
   theme(axis.title = element_blank(),
