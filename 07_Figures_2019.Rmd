@@ -330,7 +330,7 @@ if (save_plots)  {
 ```{r, fig.height = 6, fig.width = 8}
 
 xlimits <- c(5, 15)
-ylimits <- c(62.5, 65)
+ylimits <- c(62, 65)
 
 # Aspect ratio
 aspectratio <- 111500/longitude.length(mean(ylimits))
@@ -365,9 +365,11 @@ if (FALSE){
 p1 <- subset(df_stations_incl_long, substr(Shortname,1,2) == "29")  # main division (W and east)
 p2 <- subset(df_stations_incl_long, substr(Shortname,1,2) == "34")  # divides the E labels in two
 
-df1 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat > p2$Lat)  # NE points
-df2 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat <= p2$Lat) # SE points
-df3 <- subset(df_stations_incl_long[sel,], Long <= p1$Long)                # W points
+df1 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat > p2$Lat)      # NE points
+df2 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat <= p2$Lat)     # SE points
+df2 <- bind_rows(df2,
+                 subset(df_stations_incl_long[sel,], Shortname == "Gruve.F7")) # SE points, one extra
+df3 <- subset(df_stations_incl_long[sel,], Long <= p1$Long)                    # W points
 
 
 #p1
@@ -547,7 +549,7 @@ gg_for_inset <- gg_entire2 +
 gg_with_insets2 <- cowplot::ggdraw(gg_for_inset) +
   cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.2) +
   # Move Trøndelagen further south and a bit to the left
-  cowplot::draw_image(img_trondelag, x = 0.3, y = -0.2, width = 0.55, height = 0.75, scale = 1.2)
+  cowplot::draw_image(img_trondelag, x = 0.3, y = -0.18, width = 0.55, height = 0.75, scale = 1.2)
 # gg_with_insets
 
 # gg_with_insets2
