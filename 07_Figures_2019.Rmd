@@ -12,11 +12,18 @@ Plots for report 2019
 * Overview maps (types of stations) for Methods chapter (section 3)  
 * Pies (for chemical/ecological 'tilstand') on maps for Results (sections 4-5)   
 * Bar plots for 'tilstand' (section 6)  
-
-First round of maps/figures (moved to Figures/07_Old):  
+  
+First round of maps/figures (moved to Figures/07_Old):   
 * No county borders   
 * Not including "lange tidsserier" ('long time-series' stations)  
 * Somewhat different colors etc.    
+  
+Second round of maps/figures:    
+* Map for methods (points = type of station) w/o county borders - 3a-c (3c5 used in report)
+* Map for methods (points = type of station) with county borders - 3d-h
+* Map for results (points = pie) w/o county borders - 4g-h (4h2 used in report)
+* Map for results (points = pie) with county borders - 5
+* "Lange tidsserier" ('long time-series' stations) are used for Methods map, not in Results  
 
 ## 1. Prerequisites  
 
@@ -270,17 +277,19 @@ gg
 
 ### b. version 2 (no legend)
 ```{r}
+
 gg2 <- gg + theme(legend.position = "none")
 if (save_plots)  
   ggsave("Figures/07_Map_for_methods_chapter_2.png", gg2, width = 6, height = 6.5, dpi = 500) 
 gg2
+
 ```
 
 ### c. Map with labels    
 
 #### c1. Entire area   
 Names outside Trøndelag + Nordland only, i.e. south of Lat 62
-```{r}
+```{r, width = 9, height = 10}
 gg <- ggplot(df_stations_incl_long) +
     annotation_map(map_norway, aes(long, lat), fill = "navajowhite") +
   geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype)) +
@@ -300,9 +309,18 @@ gg_entire <- gg +
                   size = 4,
                   point.padding = 0.2, force = 0.3) +
   coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  +
-  theme_nothing() 
+  theme_nothing() +
+  theme(legend.position = c(0.99, 0.85),
+        legend.text = element_text(size = 13),
+        legend.title = element_text(size = 13))
 
 gg_entire
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_n_entire1.png", gg_entire, width = 8, height = 6, dpi = 500) 
+  
+}
+
 
 ```
 
@@ -323,14 +341,9 @@ sel <- with(df_stations_incl_long,
 
 labelsize <- 4
 
-p1 <- subset(df_stations_incl_long, substr(Shortname,1,2) == "29")  # main division (W and east)
-p2 <- subset(df_stations_incl_long, substr(Shortname,1,2) == "34")  # divides the E labels in two
-
-df1 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat > p2$Lat)  # NE points
-df2 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat <= p2$Lat) # SE points
-df3 <- subset(df_stations_incl_long[sel,], Long <= p1$Long)                # W points
-
-
+#
+# Just for checking (finding p1, p2 etc.) 
+# 
 if (FALSE){
   ggplot(data = df_stations_incl_long[sel,], aes(Long, Lat, Long, Lat, label = Shortname)) +
     geom_blank() +
@@ -348,34 +361,46 @@ if (FALSE){
     theme(legend.position = "none")
 }
 
+
+p1 <- subset(df_stations_incl_long, substr(Shortname,1,2) == "29")  # main division (W and east)
+p2 <- subset(df_stations_incl_long, substr(Shortname,1,2) == "34")  # divides the E labels in two
+
+df1 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat > p2$Lat)  # NE points
+df2 <- subset(df_stations_incl_long[sel,], Long > p1$Long & Lat <= p2$Lat) # SE points
+df3 <- subset(df_stations_incl_long[sel,], Long <= p1$Long)                # W points
+
+
 #p1
 
 gg_trond <- ggplot(data = df_stations_incl_long[sel,], aes(Long, Lat, label = Shortname)) + 
   geom_blank() +
   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
-  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype)) +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), size = rel(1.7)) +
   scale_fill_manual(values = cols) +
   scale_shape_manual(values = shapes) +
   # North-eastern points go to the east
   geom_text_repel(data = df1,
-                  nudge_x = max(df1$Long) + 0.1 - df1$Long,
-                  point.padding = 0.1, 
+                  aes(Long + 0.1),
+                  nudge_x = max(df1$Long) + 0.2 - df1$Long,
+                  point.padding = 0.2, 
                   direction = "y", 
                   size = labelsize,
                   hjust = 0
                   ) +
   # South-eastern points go to the east
   geom_text_repel(data = df2,
-                  nudge_x = max(df2$Long) + 0.1 - df2$Long,
-                  point.padding = 0.1, 
+                  aes(Long + 0.1),
+                  nudge_x = max(df2$Long) + 0.2 - df2$Long,
+                  point.padding = 0.2, 
                   direction = "y", 
                   size = labelsize,
                   hjust = 0
                   ) +
   # Western points go to the west
   geom_text_repel(data = df3,
+                  aes(Long - 0.1),
                   nudge_x = min(df3$Long) - 0.2 - df3$Long,
-                  point.padding = 0.1, 
+                  point.padding = 0.2, 
                   direction = "y", 
                   size = labelsize,
                   hjust = 1
@@ -384,28 +409,14 @@ gg_trond <- ggplot(data = df_stations_incl_long[sel,], aes(Long, Lat, label = Sh
   theme_nothing() +
   theme(legend.position = "none")
 
-gg_trond
-```
 
-```{r}
-#if (FALSE){
-if (TRUE){
-  sel <- df_stations_incl_long$Lat > subset(df_stations_incl_long, substr(Shortname,1,2)=="43")$Lat 
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_n_z1.png", gg_trond, width = 8, height = 6, dpi = 500) 
   
-  ggplot(data = df_stations_incl_long[sel,], aes(Long, Lat, Long, Lat, label = Shortname)) +
-    geom_blank() +
-    annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
-    geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype)) +
-    scale_fill_manual(values = cols) +
-    scale_shape_manual(values = shapes) +
-    geom_text_repel(point.padding = 0.1,
-                    direction = "both", size = labelsize,
-                    force = 2
-    ) +
-    coord_fixed(ratio = 2) +
-    theme_nothing() +
-    theme(legend.position = "none")
 }
+
+gg_trond
 
 ```
 
@@ -441,6 +452,13 @@ gg_nordland <- ggplot(data = df_stations_incl_long[sel,], aes(Long, Lat, Long, L
     theme_nothing() +
     theme(legend.position = "none")
 
+
+
+if (save_plots)  {
+  ggsave("Figures/07_Map_for_methods_chapter_n_z2.png", gg_nordland, width = 7, height = 6, dpi = 500) 
+  
+}
+
 gg_nordland
 
 #p1
@@ -448,7 +466,106 @@ gg_nordland
   
 ```
 
-### c. version 3  
+
+
+#### c4. Entire area with insets  
+* cowplot approach (see https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
+* Insets made by 
+    - reading the saved files
+    - making the white areas transparent 
+    - inserting using cowplot::draw_image
+    - x, y, width, scale set by trial and error to some extent
+
+```{r, fig.width=10, fig.height=8}
+
+# https://www.r-bloggers.com/plots-within-plots-with-ggplot2-and-ggmap/
+
+if (FALSE){
+  #
+  # Used to find coordinates for annotate("rect") below
+  #
+  longs <- 3:18  
+  gg_entire + 
+    annotate("text", x = longs, y = 62, label = as.character(longs)) +
+    annotate("text", x = longs, y = 65, label = as.character(longs)) +
+    annotate("text", x = longs, y = 67.5, label = as.character(longs))
+}
+
+gg_for_inset <- gg_entire +
+  annotate("rect", xmin = 12, ymin = 65.2, xmax = 16.5, ymax = 67.5, 
+           fill = NA, color = "black", size = 1, linetype = 2) +
+  annotate("rect", xmin = 8, ymin = 62, xmax = 14.5, ymax = 64.8, 
+           fill = NA, color = "black", size = 1, linetype = 2)
+
+#?geom_rect
+
+# gg_for_inset
+
+
+# Not very nice
+# gg_entire + annotation_custom(
+#    ggplotGrob(gg_zoom2),
+#    xmin = 3.5, ymin = 63, xmax = 10, ymax = 68.5)
+
+# update.packages("cowplot")
+# update.packages("cowplot")
+
+img_trondelag <- magick::image_read("Figures/07_Map_for_methods_chapter_n_z1.png") %>%
+  magick::image_transparent(color = "white")
+
+img_nordland <- magick::image_read("Figures/07_Map_for_methods_chapter_n_z2.png") %>%
+  magick::image_transparent(color = "white")
+
+gg_with_insets <- cowplot::ggdraw(gg_for_inset) +
+  cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.2) +
+  cowplot::draw_image(img_trondelag, x = 0.45, y = -0.10, width = 0.55, height = 0.75, scale = 1.2)
+# gg_with_insets
+
+cowplot::ggsave("Figures/07_Map_for_methods_chapter_n_with_insets.png", 
+                gg_with_insets, width = 10.8, height = 8, dpi = 500)
+
+# Show the saved version
+# (which is the actual end product) 
+magick::image_read("Figures/07_Map_for_methods_chapter_n_with_insets.png") %>% plot()
+
+```
+
+#### c5. Tall/narrow version of c4
+```{r, fig.width = 9, fig.height = 11}
+# , fig.width=10.8, fig.height=13
+
+gg_entire2 <- gg_entire +
+  theme(legend.position = c(0.2, 0.65))                    # move legend to the left
+
+gg_for_inset <- gg_entire2 +
+  theme(legend.position = c(0.2, 0.65)) +                    # move legend to the left
+  annotate("rect", xmin = 12, ymin = 65.2, xmax = 16.5, ymax = 67.5, 
+           fill = NA, color = "black", size = 1, linetype = 2) +
+  annotate("rect", xmin = 8, ymin = 62, xmax = 14.5, ymax = 64.8, 
+           fill = NA, color = "black", size = 1, linetype = 2)
+
+gg_with_insets2 <- cowplot::ggdraw(gg_for_inset) +
+  cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.2) +
+  # Move Trøndelagen further south and a bit to the left
+  cowplot::draw_image(img_trondelag, x = 0.3, y = -0.2, width = 0.55, height = 0.75, scale = 1.2)
+# gg_with_insets
+
+# gg_with_insets2
+
+if (save_plots)  {
+  
+  cowplot::ggsave("Figures/07_Map_for_methods_chapter_n_with_insets2.png", 
+                  gg_with_insets2, width = 10.8, height = 13, dpi = 500)
+
+  ggsave("Figures/07_Map_for_methods_chapter_n_entire2.png", gg_entire2, width = 8, height = 6, dpi = 500) 
+  
+}
+
+# 
+magick::image_read("Figures/07_Map_for_methods_chapter_n_with_insets2.png") %>% plot()
+
+```
+
 Version 1 = all names
 Version 2 = Names outside Trøndelag + Nordland only, i.e. south of Lat 62
 ```{r}
