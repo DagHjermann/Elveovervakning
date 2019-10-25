@@ -549,7 +549,7 @@ gg_for_inset <- gg_entire2 +
 gg_with_insets2 <- cowplot::ggdraw(gg_for_inset) +
   cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.2) +
   # Move Trøndelagen further south and a bit to the left
-  cowplot::draw_image(img_trondelag, x = 0.3, y = -0.18, width = 0.55, height = 0.75, scale = 1.2)
+  cowplot::draw_image(img_trondelag, x = 0.43, y = -0.18, width = 0.55, height = 0.75, scale = 1.2)
 # gg_with_insets
 
 # gg_with_insets2
