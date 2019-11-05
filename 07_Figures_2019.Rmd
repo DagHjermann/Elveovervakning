@@ -287,12 +287,28 @@ gg2
 
 ### c. Map with labels    
 
+```{r}
+# Set size of points in c1, c2 and c3
+pointsize_entire <- 4 
+pointsize_z1 <- 4.5
+pointsize_z2 <- 3.2
+
+# The following code is used in c4 and c5 when saving th eplots
+size_label_for_file <- paste(pointsize_entire*10, pointsize_z1*10, pointsize_z2*10, sep = "_")
+size_label_for_file
+
+```
+
 #### c1. Entire area   
 Names outside Trøndelag + Nordland only, i.e. south of Lat 62
 ```{r, width = 9, height = 10}
+
+cols <- c("black", "black", "white", "black")
+shapes <- c(21, 4, 21, 13)   # circle, cross, circle, and circle w/ cross (see ?points)
+
 gg <- ggplot(df_stations_incl_long) +
     annotation_map(map_norway, aes(long, lat), fill = "navajowhite") +
-  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype)) +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), size = rel(pointsize_entire)) +
   scale_fill_manual(values = cols) +
   scale_shape_manual(values = shapes) +
   coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
@@ -377,7 +393,7 @@ df3 <- subset(df_stations_incl_long[sel,], Long <= p1$Long)                    #
 gg_trond <- ggplot(data = df_stations_incl_long[sel,], aes(Long, Lat, label = Shortname)) + 
   geom_blank() +
   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
-  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), size = rel(1.7)) +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), size = rel(pointsize_z1)) +
   scale_fill_manual(values = cols) +
   scale_shape_manual(values = shapes) +
   # North-eastern points go to the east
@@ -441,7 +457,7 @@ labelsize <- 4
 gg_nordland <- ggplot(data = df_stations_incl_long[sel,], aes(Long, Lat, Long, Lat, label = Shortname)) +
     geom_blank() +
     annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
-    geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype)) +
+    geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), size = rel(pointsize_z2)) +
     scale_fill_manual(values = cols) +
     scale_shape_manual(values = shapes) +
     geom_text_repel(aes(Long + 0.1),  # 0.2: move start point of lines to right
@@ -523,12 +539,13 @@ gg_with_insets <- cowplot::ggdraw(gg_for_inset) +
   cowplot::draw_image(img_trondelag, x = 0.45, y = -0.10, width = 0.55, height = 0.75, scale = 1.2)
 # gg_with_insets
 
-cowplot::ggsave("Figures/07_Map_for_methods_chapter_n_with_insets.png", 
-                gg_with_insets, width = 10.8, height = 8, dpi = 500)
+
+fn <- sprintf("Figures/07_Map_for_methods_chapter_n_with_insets_%s.png", size_label_for_file)
+cowplot::ggsave(fn, gg_with_insets, width = 10.8, height = 8, dpi = 500)
 
 # Show the saved version
 # (which is the actual end product) 
-magick::image_read("Figures/07_Map_for_methods_chapter_n_with_insets.png") %>% plot()
+magick::image_read(fn) %>% plot()
 
 ```
 
@@ -556,15 +573,13 @@ gg_with_insets2 <- cowplot::ggdraw(gg_for_inset) +
 
 if (save_plots)  {
   
-  cowplot::ggsave("Figures/07_Map_for_methods_chapter_n_with_insets2.png", 
-                  gg_with_insets2, width = 10.8, height = 13, dpi = 500)
+  fn <- sprintf("Figures/07_Map_for_methods_chapter_n_with_insets2_%s.png", size_label_for_file)
+  cowplot::ggsave(fn, gg_with_insets2, width = 10.8, height = 13, dpi = 500)
 
-  ggsave("Figures/07_Map_for_methods_chapter_n_entire2.png", gg_entire2, width = 8, height = 6, dpi = 500) 
-  
 }
 
 # 
-magick::image_read("Figures/07_Map_for_methods_chapter_n_with_insets2.png") %>% plot()
+magick::image_read(fn) %>% plot()
 
 ```
 
