@@ -32,18 +32,22 @@ make_indexplot <- function(data_index, varname_index,
   
   # Plot
   gg <- ggplot(data_index, aes(Rapportnavn, Indeksverdi, fill = Tilstandsklasse)) + 
-    geom_hline(yintercept = seq(0, 1, 0.2), size = rel(0.5), linetype = 2) +
+    # geom_hline(yintercept = seq(0, 1, 0.2), size = rel(0.5), linetype = 2) +
     geom_hline(yintercept = 0.6, size = rel(1), linetype = 1) +
     geom_col(width = 0.75) +
     scale_fill_manual("Tilstandsklasse", values = class_colors) +
-    scale_y_continuous(minor_breaks = seq(0, 1, 0.2), breaks = seq(0, 1, 0.2), 
-                       limits = c(0,1.08), expand = c(0,0)) +         # limits + expand: no space on left side + a little space on right side 
+    scale_y_continuous(minor_breaks = seq(0, 1, 1), breaks = seq(0, 1, 1), 
+                       limits = c(0,1.06), expand = c(0,0)) +         # limits + expand: no space on left side + a little space on right side 
     coord_flip() + 
     theme(axis.text.y = element_text(hjust = 0)) +
     theme(legend.position = "bottom") +
     labs(x = "", y = scale_label) +
     theme_bw() +
-    theme(axis.text = element_text(color = "black"))
+    theme(axis.text = element_text(color = "black"),
+          panel.grid.major.x = element_line(color = "black", linetype = 1),
+          panel.grid.major.y = element_line(color = "white"),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank())
   gg
 }
 
