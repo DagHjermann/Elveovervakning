@@ -1543,9 +1543,7 @@ label <- "Samlet eutrofieringstilstand (nEQR)"
 plotno <- "1a"
 # debugonce(make_indexplot)
 
-gg <- make_indexplot(df_index_barplot, "nEQR_eutrofi", label) +
-  theme_bw() +
-  theme(axis.text = element_text(color = "black"))
+gg <- make_indexplot(df_index_barplot, "nEQR_eutrofi", label)
 if (save_plots){
   ggsave(paste0("Figures/07_", plotno, "_", label, ".png"), gg, width = 8.5, height = 10.5, dpi = 500)
   ggsave(paste0("Figures/07_", plotno, "_", label, ".svg"), gg, width = 8.5, height = 10.5)
