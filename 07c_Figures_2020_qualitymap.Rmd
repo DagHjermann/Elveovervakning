@@ -1,0 +1,716 @@
+---
+title: "Untitled"
+author: "DHJ"
+date: "23 10 2020"
+output: html_document
+---
+
+
+Overview maps (types of stations) for Methods chapter (section 3)  
+- using UTM 
+* "Lange tidsserier" ('long time-series' stations) are used for Methods map, not in Results  
+
+## 1. Prerequisites  
+
+### a. Whether and where to save figures  
+```{r}
+#
+# SAve figures to file, or just show them in this report?
+#
+#
+save_plots <- TRUE
+save_plots <- FALSE
+
+
+#
+# Where to save figures
+#
+folder_fig <- "Figures/2020"
+
+
+```
+
+### b. Libs + map  
+```{r}
+library(tidyverse)  # filter, group_by, summary, etc.
+library(gridGraphics)
+library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
+library(readxl)
+
+# map_norway <- map_data("world", "Norway")
+# map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+
+# Long/lat map (including the smaller islands) - lacking Mjøsa, though! 
+#   (and including some North Finnish lakes?)
+load("Data_input/Norway_coastline_longlat2.RData")
+# rename
+map_norway_h <- norway_coast_longlat2
+rm(norway_coast_longlat)
+
+# Test plot
+# ggplot(map_norway_h) + geom_path(aes(long, lat, group = group))
+
+library(mapproj)    # mapproject
+library(ggrepel)    # geom_text_repel()
+library(sp)         # SpatialPoints(), CRS(), spTransform()
+library(sf)         # st_read
+library(ggimage)    # geom_subview(), theme_transparent()
+
+library(glue)       # used in ggplot2() function
+library(leaflet)
+
+library(cowplot)
+
+source("07_Figures_functions.R")
+
+# Define crs strings for conversion between long/lat and UTM
+crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
+crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
+
+```
+### c. Define colours for classes  
+```{r, fig.width=3.5, fig.height=2.5}
+
+# Order in plots etc.
+class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
+
+# Read standard colors
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2) %>%
+  mutate(
+    Status_no = case_when(
+      Status %in% "High" ~ "Svært god",
+      Status %in% "Good" ~ "God",
+      Status %in% "Moderate" ~ "Moderat",
+      Status %in% "Poor" ~ "Dårlig",
+      Status %in% "Bad" ~ "Svært dårlig",
+      Status %in% "Unclassified" ~ "Uklassifisert"),
+    Status_no = factor(Status_no, levels = class_levels),
+    Class_color = rgb(R/255, G/255, B/255)
+  ) %>%
+  arrange(Status_no)
+df_colors
+
+
+# Show colors
+par(mar = c(0,0,2,0))
+pie(rep(1,6), 
+    col = df_colors$Class_color, 
+    labels = df_colors$Status_no, 
+    main = "Colors for nEQr classes")  
+
+# Also make named list
+class_colors <- df_colors$Class_color
+names(class_colors) <- df_colors$Status_no
+
+```
+
+## 2. Data   
+
+### a. Data from script 7a and 7b  
+```{r}
+
+# From script 7a
+df_index <- readRDS("Data/2020/07a_df_index_2019.rds")
+
+# From script 7b, part 4c
+df_stations <- readRDS("Data/2020/07b_df_stations.rds")   # with UTM 32 coordinates
+box_dim <- readRDS("Data/2020/07b_box_dim.rds")
+box_polygons <- readRDS("Data/2020/07b_box_polygons.rds")
+
+```
+
+### b. Map with counties (fylke)  
+```{r}
+
+# Code same as in script 7b
+
+# Gotten from Geonorge ("Norske fylker og kommuner illustrasjonsdata 2019 (klippet etter kyst)")
+#   https://kartkatalog.geonorge.no/metadata/cb02ab77-d3e6-4500-8a92-ea67367e7734 
+#   https://nedlasting.geonorge.no/geonorge/Generell/AdmEnh_klippet_etter_kyst2019.zip  
+map_counties_utm33 <- sf::st_read("Data_input/2019/AdmEnh_klippet_etter_kyst2019/Fylker19.geojson")
+# UTM zone 33
+
+# Get coordinates of county map (df_counties)  
+# We convert corodinates from UTM zone 33 to UTM 32, as this is more fitting for Southern Norway   
+# Extract coordinates and Transform from UTM33 to UTM32
+df_counties <- st_coordinates(map_counties_utm33) %>% 
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2, id = L3)
+
+```
+
+### c. Make background map (gg_back)    
+```{r}
+
+# Code same as in script 7b
+
+# Counties: 11 = Nordland, 3 = Troms, 2 = Finnmark (see 7b)
+# Remove these 3 counties
+df_counties <- df_counties %>%
+  filter(!id %in% c(11,3,2))
+
+# Get remaining county numbers
+county_numbers <- unique(df_counties$id)
+
+# Start 'gg_back'
+gg_back <- ggplot(data = df_counties, aes(x, y)) + 
+  geom_blank() + 
+  coord_fixed() +
+  theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        )
+
+# Add one county after the other
+for (i in county_numbers){
+  gg_back <- gg_back + 
+    geom_polygon(data = df_counties %>% filter(L1 == 1 & id %in% i), 
+                 aes(x, y, group = group), fill = "navajowhite", color = "grey30")
+}
+
+# For adjusting limits:
+ggdata <- layer_data(gg_back)
+
+```
+
+
+## 3. Make pies  
+
+### a. Start making 'df_pies'  
+Also writes df_stations_vf to excel (later manipulated semi-manually and used in part 6)   
+```{r}
+
+# Start with location data on Vannforekomst-level
+df_pies <- df_stations
+
+```
+
+
+### b. Ecological class, levels and colors    
+```{r}
+
+# df_colors$Status_no
+# class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
+
+df_pies <- df_pies %>%
+  mutate(
+    Class_ecol = case_when(
+      is.na(Index_ecol) ~ "Uklassifisert",
+      Index_ecol < 0.2 ~ "Svært dårlig", 
+      Index_ecol < 0.4 ~ "Dårlig", 
+      Index_ecol < 0.5 ~ "Moderat", 
+      Index_ecol < 0.8 ~ "God", 
+      Index_ecol <= 1 ~ "Svært god"),
+    Class_ecol = factor(Class_ecol, levels = df_colors$Status_no)
+  ) %>%
+  left_join(
+    df_colors %>% select(Status_no, Class_color),
+    by = c("Class_ecol" = "Status_no")
+  ) %>%
+  rename(Colour_ecol = Class_color)  
+
+ggplot(df_pies, aes(Class_ecol, Index_ecol, fill = Class_ecol)) + 
+  geom_point(shape = 21, size = 2) +
+  scale_fill_manual(values = class_colors) +
+  theme(panel.background = element_rect(fill = "grey70"), panel.grid = element_blank())
+
+```
+
+### c. Chemical class, levels and colors    
+```{r}
+
+df_pies <- df_pies %>%
+  mutate(
+    Colour_chem = case_when(
+      is.na(Class_chem) ~ class_colors["Uklassifisert"],
+      Class_chem %in% "God" ~ class_colors["Svært god"],
+      Class_chem %in% "Ikke god" ~ class_colors["Svært dårlig"],
+      Class_chem %in% "i.d." ~ class_colors["Uklassifisert"])
+  )
+
+
+
+```
+
+### d. Make pies from data frame 'df_pies', and add to 'df_pies'
+```{r}      
+
+# Function - make pie for line number i
+make_pie_linenumber_indexvalues <- function(i){
+  df <- df_pies[i, c("Colour_ecol", "Colour_chem")]
+  make_pie_from_colours(as.character(df))
+}
+
+# TEST
+make_pie_linenumber_indexvalues(1)
+
+# test - should make 3 plots with one pie in each  
+if (FALSE){
+  grep("GLO1", df_pies$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("GLO3", df_pies$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("ORR1", df_pies$Shortname) %>% make_pie_linenumber_indexvalues()
+}
+
+# Make all pies (a list)
+pies <- 1:nrow(df_pies) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
+length(pies)
+# pies[[9]]
+
+# Add pies to dataframe (as a list column)
+df_pies$pie = pies
+
+```
+```{r}
+gg <- gg_back +
+  geom_point(data = df_pies[c(1,5,10),], aes(x = x, y = y))
+gg
+
+```
+
+## Map outside boxes  
+
+### a. Plot without labels  
+```{r}
+
+#
+# Width and height of pies
+#   
+df_pies$width = 20E3    # Sets size of pies
+df_pies$height = 20E3   
+
+#
+# Make data set for stations outside inset plots
+#
+
+df_pies_outside <- df_pies
+for (i in unique(box_polygons$boxnumber)){
+  box <- box_polygons %>% filter(boxnumber == i)
+  df_pies_outside <- df_pies_outside %>%
+    filter(
+      !(x > min(box$x) & x < max(box$x) & y > min(box$y) & y < max(box$y))
+    )
+}
+
+gg1 <- gg_back +
+  geom_subview(data = df_pies_outside, 
+               aes(x = x, y = y, subview = pie, width = width, height = height)
+               )
+# gg
+
+fn <- glue("{folder_fig}/07_qualitymap_outside_boxes1.png")
+scale <- 1.5
+ggsave(fn, gg1, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+
+```
+
+### b. Prepare label positions  
+```{r}
+
+
+
+# Filter using entire Shortname:
+group1 <- c("Gruve.O5","Gruve.O4","Gruve.O3","Gruve.Ya")
+group2a <- c("GruveF2","Gruve.F4") 
+group2b <- c("Gruve.F5","Gruve.F7") 
+# Filter using the two first characters (using substr() on Shortname):
+group3 <- c("01","03","04") 
+group4a <- c("47","50","51") 
+group4b <- c("48","49") 
+group5 <- c("35","36","37") 
+group6a <- c("11","12","13") 
+group6b <- c("08","09","10") 
+
+
+
+# NOT NEEDED? DELETE?
+# get_x <- function(name, data = df_stations)
+#   subset(data, Shortname %in% name)$x
+# get_y <- function(name, data = df_stations)
+#   subset(data, Shortname %in% name)$y
+
+# For setting ylim:
+# ggdata <- layer_data(gg_back)
+
+gg2 <- gg_back +
+  theme(legend.position = "none") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group3), 
+    xdist = 30E3, xadj_start = 7E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4a), 
+    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = 50E3, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4b), 
+    xdist = 50E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = -30E3, 
+    order = "E to W",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group5), 
+    xdist = 35E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = -40E3, 
+    order = "E to W",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6a),
+    xdist = 30E3, y_even_dist = 20E3, y_even_pos = -60E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6b),
+    xdist = 30E3, y_even_dist = 20E3, y_even_pos = -60E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_subview(data = df_pies %>% filter(!Shortname %in% c(group1, group2a, group2b)), 
+               aes(x = x, y = y, subview = pie, width = width, height = height)) +
+  xlim(range(ggdata$x) + c(-50E3, 50E3)) +  
+  ylim(range(ggdata$y) + c(-50E3, 0))
+
+# gg2
+
+fn <- glue("{folder_fig}/07_qualitymap_outside_boxes2.png")
+scale <- 1.5
+ggsave(fn, gg2, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+  
+
+```
+
+### c. Map with inset boxes    
+```{r, fig.width=8, fig.height=10}
+
+#
+# Make data set for the letters beside the box
+#
+box_letter_pos <- box_polygons %>%
+  group_by(boxnumber) %>%
+  summarise(
+    x = max(x) + 7E3,  # left of left edge 
+    y = max(y))         # top edge (we use vjust to adjust the position)
+box_letter_pos$letter <- LETTERS[as.numeric(box_letter_pos$boxnumber)]
+box_letter_pos
+
+#
+# Add boxes and letters
+#
+gg3 <- gg2 +
+  geom_polygon(data = box_polygons, aes(group = boxnumber),
+               fill = NA, colour = "red3", size = rel(1.5)) +
+  geom_text(data = box_letter_pos, aes(label = letter), 
+            size = rel(8), colour = "red3", hjust = 0, vjust = 1) 
+
+# gg3
+
+```
+
+## Insets  
+These plots differ form the 
+```{r}
+
+gg_box <- vector("list", length(box_polygons))
+data_box <- vector("list", length(box_polygons))
+
+```
+
+### Defining unctions  
+```{r}
+
+#
+# Function for making 'data_box', which is the data for the pies
+#   inside box number 'i'
+#
+# sizeratio = 0.15 is found by trial and error
+#
+
+qualplot_make_data_box <- function(i, polygon, data, sizeratio = 0.15){
+  
+  data_box[[i]]  <- data %>%
+    filter(
+      (x > min(polygon$x) & x < max(polygon$x) & 
+         y > min(polygon$y) & y < max(polygon$y))
+    )
+  
+  data_box[[i]] %>%
+    mutate(width = width*sizeratio,
+           height = height*sizeratio)
+}
+
+
+#
+# Function for adding pies for box number 'i'
+# (which we do *after* adding labels)
+#
+qualplot_add_pies <- function(gg, data, box, i) {
+  
+  gg <- gg +
+    geom_subview(data = data, 
+                 aes(x = x, y = y, subview = pie, width = width, height = height)) +
+    annotate("text", label = LETTERS[i], 
+             x = min(box$x) + 1200, y = max(box$y) - 1500, 
+             size = rel(8), colour = "red3") +
+    coord_fixed(xlim = range(box$x), ylim = range(box$y)) +
+      theme(legend.position = "none",
+            plot.background = element_rect(
+              colour = "black",
+              size = 1)
+            )
+
+}
+
+                                 
+
+```
+
+### Inset 1
+```{r, fig.width = 5, fig.height = 5}
+
+#
+# For each inset 1-5:
+#   - the TOP (except "i <- 1") and BOTTOM parts are always the same
+#   - the MIDDLE part between A and B (adding labels) is copy-pasted 
+#   from script 07b (yes, I know...)
+#
+
+i <- 1
+
+box <- box_polygons %>% filter(boxnumber == i)
+data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
+gg_box[[i]] <- gg_back
+
+# ------------------ A ------------------- #
+
+# Add 'group' (we will make different labels for each group)
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("43","46") ~ "left",
+    substr(Shortname,1,2) %in% "45" ~ "above",
+    TRUE ~ "right"))
+
+# Add levels
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "above"),
+    xdist = 4E3, same_x = FALSE, xadj_start = 900, 
+    y_even_dist = 0, y_even_pos = 3E3,
+    color = "blue3", segment.color = "blue3")
+
+# ------------------ B ------------------- #
+  
+gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
+
+
+# gg_box[[i]]
+
+```
+
+### Inset 2
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 2
+
+box <- box_polygons %>% filter(boxnumber == i)
+data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
+gg_box[[i]] <- gg_back
+
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_repel(
+      data = data_box[[i]], 
+      aes(label = Shortname), color = "blue3", 
+      label.padding = 0.15, point.padding = 1)
+
+# ------------------ B ------------------- #
+  
+gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
+
+
+# gg_box[[i]]
+
+```
+
+### Inset 3
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 3
+
+box <- box_polygons %>% filter(boxnumber == i)
+data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
+gg_box[[i]] <- gg_back
+
+# ------------------ A ------------------- #
+
+# Add 'group' (we will make different labels for each group)
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("19") ~ "left",
+    TRUE ~ "right"))
+
+# Add labels  
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3")
+
+# ------------------ B ------------------- #
+  
+gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
+
+
+# gg_box[[i]]
+
+```
+### Inset 4
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 4
+
+box <- box_polygons %>% filter(boxnumber == i)
+data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
+gg_box[[i]] <- gg_back
+
+# ------------------ A ------------------- #
+
+# Add 'group' (we will make different labels for each group)
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("18") ~ "rightbelow",
+    substr(Shortname,1,2) %in% c("14") ~ "left",
+    TRUE ~ "right"))
+
+# Add labels  
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "rightbelow"),
+    xdist = 4E3, same_x = FALSE, xadj_start = 900, 
+    y_even_dist = 0, y_even_pos = -3E3,
+    color = "blue3", segment.color = "blue3")
+
+# ------------------ B ------------------- #
+  
+gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
+
+
+
+# gg_box[[i]]
+
+```
+
+### Inset 5
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 5
+
+box <- box_polygons %>% filter(boxnumber == i)
+data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
+gg_box[[i]] <- gg_back
+
+# ------------------ A ------------------- #
+
+# Add 'group' (we will make different labels for each group)
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("07") ~ "right",
+    TRUE ~ "left"))
+
+# Add labels  
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 2E3, same_x = FALSE, xadj_start = 400, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 2E3, same_x = FALSE, xadj_start = 400,  
+    color = "blue3", segment.color = "blue3")
+
+# ------------------ B ------------------- #
+  
+gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
+
+# gg_box[[i]]
+
+```
+
+## Final map
+```{r}
+
+# Positions on scale 0 to 1 (of lower left corner)
+# These are strangely hard to set correctly
+box_pos <- tibble::tribble(
+  ~x,    ~y,
+  0.37,  0.6,
+  0.07,  0.6,
+  0.07,  0.44,  # 
+  0.07,  0.15,
+  0.70,  0.15
+)
+
+# Size, given on scale 0 to 1 
+# box_dim$x[2] = 0.3 in size:
+box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
+box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
+
+gg4 <- ggdraw() +
+  draw_plot(gg3, x = 0.15, y = 0, scale = 0.7)
+for (i in 1:5){
+  gg4 <- gg4 + draw_plot(
+    gg_box[[i]], 
+    x = box_pos$x[i], y = box_pos$y[i], 
+    width = box_dim$x_scale[i], height = box_dim$y_scale[i]
+    )
+  }
+
+fn <- glue("{folder_fig}/07_qualitymap_complete.png")
+scale <- 1.5
+ggsave(fn, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+
+```
+
+
+```{r}
+
+
+```
+
+

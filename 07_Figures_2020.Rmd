@@ -1,0 +1,2414 @@
+---
+title: "07 Figures 2018 - maps and barplots"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+
+---
+
+Plots for report 2020 (*data* from 2019!)   
+* Overview maps (types of stations) for Methods chapter (section 3)  
+* Pies (for chemical/ecological 'tilstand') on maps for Results (sections 4-5)   
+* Bar plots for 'tilstand' (section 6)  
+  
+First round of maps/figures (moved to Figures/07_Old):   
+* No county borders   
+* Not including "lange tidsserier" ('long time-series' stations)  
+* Somewhat different colors etc.    
+  
+Second round of maps/figures:    
+* Map for methods (points = type of station) w/o county borders - 3a-c (3c5 used in report)
+* Map for methods (points = type of station) with county borders - 3d-h
+* Map for results (points = pie) w/o county borders - 4g-h (4h2 used in report)
+* Map for results (points = pie) with county borders - 5
+* "Lange tidsserier" ('long time-series' stations) are used for Methods map, not in Results  
+
+## 1. Prerequisites  
+
+### a1. Libs + map  
+```{r}
+library(tidyverse)  # filter, group_by, summary, etc.
+library(gridGraphics)
+library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
+library(readxl)
+map_norway <- map_data("world", "Norway")
+# map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+
+# Better map (including the smaller islands) - lacking Mjøsa, though! 
+#   (and including some North Finnish lakes?)
+load("Data_input/Norway_coastline_longlat2.RData")
+map_norway_h <- norway_coast_longlat2
+rm(norway_coast_longlat)
+
+# Test plot
+# ggplot(map_norway_h) + geom_path(aes(long, lat, group = group))
+
+library(mapproj)    # mapproject
+library(ggrepel)    # geom_text_repel()
+library(sp)         # SpatialPoints(), CRS(), spTransform()
+library(sf)         # st_read
+library(ggimage)    # geom_subview(), theme_transparent()
+
+library(glue)       # used in ggplot2() function
+library(leaflet)
+
+library(cowplot)
+
+source("07_Figures_functions.R")
+
+# Define crs strings for conversion between long/lat and UTM
+crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
+crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
+
+
+
+```
+
+
+### a2. Map with counties (fylke)  
+```{r}
+# 
+# Gotten from Geonorge ("Norske fylker og kommuner illustrasjonsdata 2019 (klippet etter kyst)")
+#   https://kartkatalog.geonorge.no/metadata/cb02ab77-d3e6-4500-8a92-ea67367e7734 
+#   https://nedlasting.geonorge.no/geonorge/Generell/AdmEnh_klippet_etter_kyst2019.zip  
+map_counties_utm <- sf::st_read("Data_input/2019/AdmEnh_klippet_etter_kyst2019/Fylker19.geojson")
+# UTM zone 33
+# plot(map_counties_utm)
+
+# Transform data to to long-lat
+map_counties <- sf::st_transform(map_counties_utm, "+proj=longlat +ellps=WGS84")
+
+# plot(map_counties)
+#df <- sf::st_coordinates(map_counties)
+#df[1:8,]
+
+
+```
+
+### a3. Functions
+```{r}
+
+# Function for supplying file name to ggsave using a "glue-able" file name
+#   Example (see part 6): 
+#   ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".png"), gg)
+ggsave2 <- function(txt, ...)
+  ggsave(filename = glue(txt), ...)
+
+#
+# leaflet function for supplying long + lat to leaflet::addRectangles using a list
+#
+addRectangles2 <- function(list, ...){
+  addRectangles(lng1 = list$lng1, lat1 = list$lat1, 
+                lng2 = list$lng2, lat2 = list$lat2, ...)
+}
+
+
+#
+# Function that adds x and y
+#
+add_utm_coord <- function(data, name_long = "long", name_lat = "lat",
+                             utm_zone = 32){
+  
+  data <- data %>%
+    mutate(x = as.numeric(NA), y = as.numeric(NA))
+  
+  # Define crs strings for conversion between long/lat and UTM
+  crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
+  crs_utm <- paste0("+proj=utm +zone=", utm_zone, " +ellps=WGS84 +datum=WGS84 +units=m")
+
+  coordinate_exists <- !is.na(data[[name_long]])   # sp doesn't like NAs
+  SP <- SpatialPoints(data[coordinate_exists, c(name_long, name_lat)],
+                      proj4string = CRS(crs_longlat)
+  )
+  SP.UTM <- spTransform(SP, CRS(crs_utm))
+  
+  # Add transformed coords to data set
+  data$x[coordinate_exists] <- SP.UTM@coords[,1]
+  data$y[coordinate_exists] <- SP.UTM@coords[,2]
+  
+  data
+  
+}
+
+```
+
+
+### b. Functions used
+```{r}
+source("03_map_pie_functions.R")
+source("04_Kvalitetselementer_søylediagram_functions.R")
+
+
+# 23b. length of 1 degree longitude (in meters), given latitude
+#      (1 degree latitude can bee assumed to be 111.5 km - it is 111.4 at 60N and 111.6 at 75N)
+#      Input = latitude (-180 - 180)
+#        From https://en.wikipedia.org/wiki/Longitude#Length_of_a_degree_of_longitude
+longitude.length <- function (lat) {
+  lat_rad <- lat*pi/180
+  a <- 6378137.0
+  b <- 6356752.3142
+  e2 <- sqrt((a^2 - b^2)/(a^2))
+  pi*a*cos(lat_rad)/(180*sqrt(1 - e2*(sin(lat_rad))^2))
+  }
+# longitude.length(60)
+
+```
+
+### c. Whether and where to save figures  
+```{r}
+#
+# SAve figures to file, or just show them in this report?
+#
+ save_plots <- TRUE
+save_plots <- FALSE
+
+
+#
+# Where to save figures
+#
+folder_fig <- "Figures/2020"
+
+
+```
+
+
+### d. Define colours for classes  
+```{r, fig.width=5, fig.height=4}
+
+# Read standard colors
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2)
+
+# Convert to rgb codes
+class_colors <- with(df_colors, rgb(R/255, G/255, B/255))
+# class_colors <- c(class_colors, rgb(0.5, 0.5, 0.5))
+names(class_colors) <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig","Uklassifisert")
+# class_colors
+
+# Show colors
+par(mar = c(2,4,2,4))
+pie(rep(1,6), col = class_colors, labels = names(class_colors), main = "Colors for nEQr classes")
+```
+
+
+## 2. Data
+### a. Read station data (coordinates) for all sample sites
+```{r}
+df_stations_all <- read_excel(
+  "Data_input/2020/KartOgFigurgrunnlag_TilDag.xlsx", 
+  sheet = "Kartgrunnlag")
+df_stations_all <- df_stations_all[1:5]
+names(df_stations_all)[c(1,4,5)] <- c("Shortname", "Index_ecol", "Class_chem")
+
+# Set long, lat
+df_stations_all <- df_stations_all %>%
+  mutate(Lat = as.numeric(sub(",", ".", Breddegrad)),
+         Long = as.numeric(sub(",",".", Lengdegrad))
+         )
+
+# "Fill out" Shortname
+for (i in  2:nrow(df_stations_all)){
+  if (is.na(df_stations_all$Shortname[i]))
+    df_stations_all$Shortname[i] <- df_stations_all$Shortname[i-1]
+}
+
+df_stations_all
+```
+
+### b. Make 'df_stations'  
+Condensing to one line per station    
+The mining stations ('Gruve') have NA for both Index_ecol and Class_chem
+```{r}
+
+df_stations <- df_stations_all %>%
+  group_by(Shortname) %>%
+  summarise(Long = mean(Long),
+            Lat = mean(Lat),
+            Index_ecol = first(Index_ecol),
+            Class_chem = first(Class_chem)) %>%
+  mutate(
+    Stasjonstype = case_when(
+      !is.na(Index_ecol) & Class_chem %in% "i.d." ~ "Økologisk tilstand",
+      !is.na(Index_ecol) & Class_chem != "i.d." ~ "Økologisk og kjemisk tilstand",
+      grepl("^Gruve", Shortname) ~ "Gruvevassdrag (lange tidsserier)",
+      TRUE ~ "?"),
+    Stasjonstype = factor(Stasjonstype, 
+                          levels = c(
+                            "Økologisk og kjemisk tilstand", "Økologisk tilstand",
+                            "Gruvevassdrag (lange tidsserier)"))
+  )
+
+xtabs(~Stasjonstype + addNA(Class_chem), df_stations)
+
+```
+
+### c. Read data for bar plots  
+* df_index is the actual data  
+* df_index_barplot will be used for bar plots (see remark in comments)
+```{r}
+df_index <- read_excel("Data_input/2020/KartOgFigurgrunnlag_TilDag.xlsx", 
+                       sheet = "Figurgrunnlag",
+                       na = "NA", 
+                       col_types = c("text", rep("numeric",3))) 
+
+names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol") # NOTE: hard-coded
+
+df_index <- df_index %>% filter(!is.na(Rapportnavn))
+
+# Note: in 'make_indexplot()', the name "Rapportnavn" is hard-coded
+
+# nEQR shouldn't be > 1
+df_index <- df_index %>%
+  mutate(nEQR_forsuring = ifelse(nEQR_forsuring > 1, 1, nEQR_forsuring))
+
+df_index
+
+# Data for barplots
+# "27.ORK1" has a missing value for 'nEQR_ecol', but it is supposed to be 'Moderate' 
+#   with 'unapplicable' nEQR_ecol. We here setr it to 0.5 jsut to have something to plot 
+df_index_barplot <- df_index %>%
+  mutate(nEQR_ecol =
+           case_when(Rapportnavn %in% "27.ORK1" ~ 0.5,
+                     TRUE ~ nEQR_ecol)
+         ) %>%
+  mutate(Label =
+           case_when(Rapportnavn %in% "27.ORK1" ~ paste(Rapportnavn, "(nEQR-verdi ikke gjeldende)"),
+                     TRUE ~ Rapportnavn)
+         )
+  
+
+```
+
+
+Stations  
+```{r}
+df_stations$Shortname
+```
+
+
+
+## 3. Leaflet map  
+
+### Define inset boxes (boxlist)     
+Also defines leaflet base map
+```{r}
+
+leaf1 <- leaflet(df_stations) %>%
+  addTiles() %>%
+  addCircleMarkers(lng = df_stations$Long, lat = df_stations$Lat,
+             popup = paste0(
+               df_stations$Shortname, "<br>",
+               df_stations$Long, ", ", df_stations$Lat),
+             radius = 5)
+
+boxlist <- list(
+  
+  list(
+    lng1 = 5.55, lat1 = 61.25, 
+    lng2 = 6.35, lat2 = 61.65
+  ),
+  list(
+    lng1 = 5.7, lat1 = 60.5, 
+    lng2 = 6.5, lat2 = 60.9
+  ),
+  list(
+    lng1 = 5.8, lat1 = 59.4, 
+    lng2 = 6.5, lat2 = 59.7
+  ),
+  list(
+    lng1 = 5.4, lat1 = 58.4, 
+    lng2 = 6.2, lat2 = 58.9
+  ),
+  list(
+    lng1 = 8.75, lat1 = 58.55, 
+    lng2 = 9.0, lat2 = 58.7
+  )
+  
+)
+
+
+
+```
+
+
+### Plot  
+```{r}
+
+leaf2 <- leaf1  
+for (box in boxlist)
+  leaf2 <- leaf2 %>% addRectangles2(list = box, fillColor = "transparent")
+
+leaf2
+
+```
+## 4. Background map  
+
+### a. Define df_range 
+```{r}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
+
+```
+
+### b. Get coordinates of county map  
+```{r}
+
+df_counties <- st_coordinates(map_counties) %>% as.data.frame()
+
+# head(df_counties)
+# length(unique(df_counties[,"L1"]))
+
+colnames(df_counties) <- c("long", "lat", "L1", "group", "id")
+#
+# Add UTM coordinates (x and y) to map
+#
+
+df_counties <- add_utm_coord(df_counties)
+
+
+```
+
+
+
+### c. County map  
+```{r}
+
+# Check counties: it turns out that 11 = Nordland, 3 = Troms, 2 = Finnmark
+if (FALSE){
+  df_counties %>% 
+    filter(L1 == 1) %>%
+    group_by(id) %>%
+    summarise(across(, mean)) %>%
+    arrange(lat)
+}
+
+# Remove these 3 counties
+df_counties <- df_counties %>%
+  filter(!id %in% c(11,3,2))
+
+# Get remaining conty numbers
+county_numbers <- unique(df_counties$id)
+
+# Start plot
+gg_back <- ggplot(data = df_counties, aes(x, y)) + 
+  geom_blank() + 
+  coord_fixed() +
+  theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        )
+
+# Add one county after the other
+for (i in county_numbers){
+  gg_back <- gg_back + 
+    geom_polygon(data = df_counties %>% filter(L1 == 1 & id %in% i), 
+                 aes(x, y, group = group), fill = "navajowhite", color = "grey30")
+}
+
+# For adjusting limits:
+ggdata <- layer_data(gg_back)
+
+gg_back
+
+# test use of ggdata
+if (FALSE)
+  gg_back + ylim(range(ggdata$y) + c(-100E3, 0))
+
+```
+
+## 5. Map with names, ggrepel
+
+### a. Add UTM coordinates
+```{r}
+
+df_stations <- add_utm_coord(df_stations, 
+                             name_long = "Long", name_lat = "Lat")
+
+```
+
+### b. Area outside boxes  
+```{r}
+
+df_stations_outside <- df_stations
+for (box in boxlist){
+  df_stations_outside <- df_stations_outside %>%
+    filter(!(Long > box$lng1 & Long < box$lng2 & Lat > box$lat1 & Lat < box$lat2))
+}
+df_stations_inside <- df_stations %>%
+  filter(!Shortname %in% df_stations_outside$Shortname)
+
+nrow(df_stations)
+nrow(df_stations_outside)
+nrow(df_stations_inside)
+
+# Leaflet plot
+if (FALSE){
+  
+  leaf3 <- leaflet(df_stations_outside) %>%
+    addTiles() %>%
+    addCircleMarkers(lng = df_stations_outside$Long, lat = df_stations_outside$Lat,
+                     popup = paste0(
+                       df_stations_outside$Shortname, "<br>",
+                       df_stations_outside$Long, ", ", df_stations_outside$Lat, "<br>",
+                       round(df_stations_outside$x, 0), ", ", 
+                       round(df_stations_outside$y, 0)
+                       ),
+                     radius = 5)
+  
+  for (box in boxlist)
+    leaf3 <- leaf3 %>% addRectangles2(list = box, fillColor = "transparent")
+  
+  leaf3
+  
+}
+
+```
+
+### c. Test plot 'outside' stations   
+All stations, and labels for stations outside inset boxes
+```{r, fig.width=8, fig.height=10}
+
+gg1 <- gg_back +
+  geom_point(
+    data = df_stations, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  theme(legend.position = "none") +
+  geom_label_repel(
+    data = df_stations_outside, 
+    aes(label = Shortname, shape = Stasjonstype), color = "blue3", label.padding = 0.15)
+
+ggsave2("{folder_fig}/07_testmap1.png", gg1, width = 8, height = 12)
+
+# gg1
+
+```
+
+
+
+### d. Build plot, ggrepel  
+```{r, fig.width=8, fig.height=10}
+
+set.seed(42)
+
+# Entire name
+group1 <- c("Gruve.O5","Gruve.O4","Gruve.O3","Gruve.Ya")
+group2 <- c("GruveF2","Gruve.F4","Gruve.F5","Gruve.F7") 
+# Search for the two first characters (suing substr)
+group3 <- c("01","03","04") 
+group4a <- c("47","50","51") 
+group4b <- c("48","49") 
+group5 <- c("35","36","37") 
+group6a <- c("11","12","13") 
+group6b <- c("08","08","10") 
+
+
+get_x <- function(name, data = df_stations)
+  subset(data, Shortname %in% name)$x
+get_y <- function(name, data = df_stations)
+  subset(data, Shortname %in% name)$y
+
+# For setting ylim:
+ggdata <- layer_data(gg_back)
+
+gg2 <- gg_back +
+  geom_point(
+    data = df_stations, 
+    aes(shape = Stasjonstype, color = Stasjonstype), size = rel(2)) +
+  scale_color_brewer(palette = "Set1") +
+  theme(legend.position = "none") +
+  geom_label_repel(
+    data = df_stations %>% filter(Shortname %in% group1), 
+    aes(label = Shortname), color = "blue3",
+    label.padding = 0.15,
+    direction = "y", nudge_x = 5E4) +
+  geom_label_repel(
+    data = df_stations %>% filter(Shortname %in% group2), 
+    aes(label = Shortname), color = "blue3",
+    label.padding = 0.15,
+    direction = "y", nudge_x = 5E4, nudge_y = -5E4) +
+  geom_label_repel(
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group3), 
+    aes(label = Shortname), color = "blue3",
+    label.padding = 0.15,
+    direction = "y", nudge_x = 5E4) +
+  geom_label_repel(
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4a), 
+    aes(label = Shortname), color = "blue3",
+    label.padding = 0.15,
+    direction = "y", nudge_x = -8E4, nudge_y = 3E-4) +
+  geom_label_repel(
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4b), 
+    aes(label = Shortname), color = "blue3",
+    label.padding = 0.15,
+    direction = "y", nudge_x = 8E4, nudge_y = 3E-4) +
+  ylim(range(ggdata$y) + c(-50E3, 0))
+
+
+if (FALSE){
+  # Paste to console 
+  windows(12, 14)
+  gg2
+  
+}
+
+```
+
+## 6. Map with names, using geom_text_left/right   
+
+### a. Test geom_text_left() and geom_text_right() functions  functions    
+```{r, fig.width=6, fig.height=9}
+
+gg2a <- gg2 +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6a),
+    xdist = 30E3, 
+    color = "blue3")
+
+gg2b <- gg2 +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6a),
+    xdist = 30E3, y_even_dist = 20E3, y_even_pos = -60E3,
+    color = "blue3")
+
+gg2c <- gg2 +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6a),
+    xdist = 30E3, y_even_dist = 20E3, y_even_pos = -60E3,
+    color = "blue3")
+
+
+if (FALSE){
+  # Paste to console 
+  windows(12, 14)
+  gg2b
+  gg2c
+}
+
+```
+
+
+### b. Build plot    
+NOTE: The less frustrating way to build this code is to code in an ordinary R script (e.g.,  '07_Figures_2020_testmap.R')   
+* Easier to 'try and fail' when the plot is made in a separate window    
+* When finished, copy code back to this chunk  
+```{r, fig.width=8, fig.height=10}
+
+# Filter using entire name:
+group1 <- c("Gruve.O5","Gruve.O4","Gruve.O3","Gruve.Ya")
+group2a <- c("GruveF2","Gruve.F4") 
+group2b <- c("Gruve.F5","Gruve.F7") 
+# Filter using the two first characters (using substr):
+group3 <- c("01","03","04") 
+group4a <- c("47","50","51") 
+group4b <- c("48","49") 
+group5 <- c("35","36","37") 
+group6a <- c("11","12","13") 
+group6b <- c("08","09","10") 
+
+
+get_x <- function(name, data = df_stations)
+  subset(data, Shortname %in% name)$x
+get_y <- function(name, data = df_stations)
+  subset(data, Shortname %in% name)$y
+
+# For setting ylim:
+ggdata <- layer_data(gg_back)
+
+gg2 <- gg_back +
+  geom_point(
+    data = df_stations,
+    aes(label = Shortname, shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_shape_manual(values = c(21,22,24)) +
+  theme(legend.position = "none") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(Shortname %in% group1), 
+    xdist = 30E3, y_even_dist = 20E3, xadj_start = 7E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(Shortname %in% group2a), 
+    xdist = 20E3, y_even_dist = 20E3, y_even_pos = 40E3, xadj_start = 7E3,
+    order = "E to W",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(Shortname %in% group2b), 
+    xdist = 20E3, y_even_dist = 20E3, y_even_pos = -40E3, xadj_start = 7E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group3), 
+    xdist = 30E3, xadj_start = 7E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4a), 
+    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = 50E3, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4b), 
+    xdist = 50E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = -30E3, 
+    direction = "E to W",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group5), 
+    xdist = 35E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = -40E3, 
+    order = "E to W",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6a),
+    xdist = 30E3, y_even_dist = 20E3, y_even_pos = -60E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6b),
+    xdist = 30E3, y_even_dist = 20E3, y_even_pos = -60E3,
+    color = "blue3", segment.color = "blue3") +
+  xlim(range(ggdata$x) + c(-50E3, 50E3)) +  
+  ylim(range(ggdata$y) + c(-50E3, 0))   
+
+gg2
+
+```
+
+### c. Set UTM dimensions of inset boxes
+From 'boxlist' to 'box_polygons'  
+```{r}
+
+# from 4 numbers, make data set with 2 lines, lower left and upper right corner  
+get_corners <- function(box) 
+  tibble(Long = sort(c(box$lng1, box$lng2)), Lat = sort(c(box$lat1, box$lat2)))
+
+# from corners, make data set with 4 lines, one from each corner (anticlockwise from lower left)  
+corners_to_polygons <- function(df)
+  tibble(x = c(df$x[1], df$x[2], df$x[2], df$x[1]), y = c(df$y[1], df$y[1], df$y[2], df$y[2]))
+
+# List of corners (with UTM coordinates)
+box_corners <- boxlist %>% 
+  purrr::map(get_corners) %>%
+  purrr::map(add_utm_coord, name_long = "Long", name_lat = "Lat")
+
+# Box 5 is very small (it turns out in part 9), we make it a bit bigger
+# 5 km in all directions
+box_corners[[5]]$x <- box_corners[[5]]$x + c(-7000, 7000)
+box_corners[[5]]$y <- box_corners[[5]]$y + c(-5000, 5000)
+box_corners[[5]]$Long <- NA  # now this is wrong, so we delete it (to be safe)
+box_corners[[5]]$Lat <- NA   #    "
+
+box_dim <- box_corners %>% purrr::map_dfr(~tibble(x = diff(.$x), y = diff(.$y)), .id = "boxnumber")
+
+
+# Data frame of polygons (UTM coordinates)
+box_polygons <- box_corners %>%
+  purrr::map_dfr(corners_to_polygons, .id = "boxnumber")
+
+```
+
+
+### d. Map with inset boxes    
+```{r, fig.width=8, fig.height=10}
+
+gg3 <- gg2 +
+  geom_polygon(data = box_polygons, aes(group = boxnumber),
+               fill = NA, colour = "red3", size = rel(1.5))
+
+gg3
+
+```
+
+
+## 7. Prepare insets    
+
+### a. Functions used  
+```{r}
+
+# Function for finding points inside box
+point_inside <- function(df, xrange, yrange)
+  df$x > xrange[1] & df$x < xrange[2] & df$y > yrange[1] & df$y < yrange[2] 
+
+# Function making basic plot without labels
+# Global: gg_back, data_box, box_corners
+make_subplot_nolabels <- function(i){
+  gg_back +
+    geom_point(
+      data = data_box[[i]], 
+      aes(shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
+    scale_fill_brewer(palette = "Set1") +
+    scale_shape_manual(values = c(21,22,24)) +
+    coord_fixed(xlim = box_corners[[i]]$x, ylim = box_corners[[i]]$y) +
+    theme(legend.position = "none",
+          plot.background = element_rect(
+            colour = "black",
+            size = 1)
+          )
+          
+}
+
+
+# Function for making a test plot using gg_repel
+# Global: gg_box and data_box
+test_subplot <- function(i){
+  gg <- gg_box[[i]] +
+    geom_text_repel(
+      data = data_box[[i]], 
+      aes(label = Shortname), color = "blue3", 
+      label.padding = 0.15, point.padding = 1)
+  windows()
+  print(gg)
+}
+
+
+```
+
+### b. Prepare lists
+```{r}
+
+gg_box <- vector("list", length(boxlist))
+data_box <- vector("list", length(boxlist))
+
+```
+
+## 8. Insets {.tabset}  
+NOTE: The less frustrating way to build this code is to code in an ordinary R script (e.g.,  '07_Figures_2020_test_insets.R')   
+* Easier to 'try and fail' when the plot is made in a separate window    
+* When finished, copy code back to this chunk  
+
+Prepare lists
+```{r}
+
+gg_box <- vector("list", length(boxlist))
+data_box <- vector("list", length(boxlist))
+
+```
+
+### Inset 1
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 1
+
+data_box[[i]] <- df_stations %>%
+  filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
+
+gg_box[[i]] <- make_subplot_nolabels(i)
+
+if (FALSE){
+  test_subplot(i)
+}
+
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("43","46") ~ "left",
+    substr(Shortname,1,2) %in% "45" ~ "above",
+    TRUE ~ "right"))
+
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "above"),
+    xdist = 4E3, same_x = FALSE, xadj_start = 900, 
+    y_even_dist = 0, y_even_pos = 3E3,
+    color = "blue3", segment.color = "blue3")
+  
+gg_box[[i]] 
+
+```
+
+### Inset 2
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 2
+
+data_box[[i]] <- df_stations %>%
+  filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
+
+gg_box[[i]] <- make_subplot_nolabels(i)
+
+if (FALSE){
+  test_subplot(i)
+}
+
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_repel(
+      data = data_box[[i]], 
+      aes(label = Shortname), color = "blue3", 
+      label.padding = 0.15, point.padding = 1)
+
+gg_box[[i]]
+
+
+```
+
+
+### Inset 3
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 3
+
+data_box[[i]] <- df_stations %>%
+  filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
+
+gg_box[[i]] <- make_subplot_nolabels(i)
+
+if (FALSE){
+  test_subplot(i)
+}
+
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("19") ~ "left",
+    TRUE ~ "right"))
+
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3")
+  
+gg_box[[i]] 
+
+```
+
+### Inset 4
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 4
+
+data_box[[i]] <- df_stations %>%
+  filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
+
+gg_box[[i]] <- make_subplot_nolabels(i)
+
+if (FALSE){
+  test_subplot(i)
+}
+
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("18") ~ "rightbelow",
+    substr(Shortname,1,2) %in% c("14") ~ "left",
+    TRUE ~ "right"))
+
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "rightbelow"),
+    xdist = 4E3, same_x = FALSE, xadj_start = 900, 
+    y_even_dist = 0, y_even_pos = -3E3,
+    color = "blue3", segment.color = "blue3")
+  
+gg_box[[i]] 
+
+```
+
+
+### Inset 5
+```{r, fig.width = 5, fig.height = 5}
+
+i <- 5
+
+data_box[[i]] <- df_stations %>%
+  filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
+
+gg_box[[i]] <- make_subplot_nolabels(i)
+
+if (FALSE){
+  test_subplot(i)
+}
+
+
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("07") ~ "right",
+    TRUE ~ "left"))
+
+gg_box[[i]] <- gg_box[[i]] +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right"),
+    xdist = 2E3, same_x = FALSE, xadj_start = 400, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left"),
+    xdist = 2E3, same_x = FALSE, xadj_start = 400,  
+    color = "blue3", segment.color = "blue3")
+
+gg_box[[i]] 
+
+
+```
+
+
+## 9. Entire area with insets   
+
+### Test plot
+```{r}
+
+gg4 <- ggdraw() +
+  draw_plot(gg3, x = 0.15, y = 0, scale = 0.7) +
+  draw_plot(gg_box[[2]], x = 0.37, y = 0.6, width = 0.3, height = 0.3) +
+  draw_plot(gg_box[[2]], x = 0.07, y = 0.6, width = 0.3, height = 0.3) +
+  draw_plot(gg_box[[2]], x = 0.07, y = 0.4, width = 0.3, height = 0.3) +
+  draw_plot(gg_box[[2]], x = 0.07, y = 0.2, width = 0.3, height = 0.3) +
+  draw_plot(gg_box[[2]], x = 0, y = 0.2, width = 0.18, height = 0.18)
+
+fn <- glue("{folder_fig}/07_labelmap_test_boxes.png")
+scale <- 1.5
+ggsave(fn, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+
+```
+
+### Real plot
+```{r}
+
+# Positions on scale 0 to 1 (of lower left corner)
+# These are strangely hard to set correctly
+box_pos <- tibble::tribble(
+  ~x,    ~y,
+  0.37,  0.6,
+  0.07,  0.6,
+  0.07,  0.44,  # 
+  0.07,  0.15,
+  0.70,  0.15
+)
+
+# Size, given on scale 0 to 1 
+# box_dim$x[2] = 0.3 in size:
+box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
+box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
+
+gg4 <- ggdraw() +
+  draw_plot(gg3, x = 0.15, y = 0, scale = 0.7)
+for (i in 1:5){
+  gg4 <- gg4 + draw_plot(
+    gg_box[[i]], 
+    x = box_pos$x[i], y = box_pos$y[i], 
+    width = box_dim$x_scale[i], height = box_dim$y_scale[i]
+    )
+  }
+
+fn <- glue("{folder_fig}/07_labelmap_complete.png")
+scale <- 1.5
+ggsave(fn, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+
+```
+
+
+* cowplot approach (see https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
+* Insets made by 
+    - reading the saved files
+    - making the white areas transparent 
+    - inserting using cowplot::draw_image
+    - x, y, width, scale set by trial and error to some extent
+
+```{r, fig.width=7, fig.height=8}
+
+# https://www.r-bloggers.com/plots-within-plots-with-ggplot2-and-ggmap/
+
+if (FALSE){
+  #
+  # Used to find coordinates for annotate("rect") below
+  #
+  longs <- 3:18  
+  gg2 + 
+    annotate("text", x = longs, y = 62, label = as.character(longs)) +
+    annotate("text", x = longs, y = 65, label = as.character(longs)) +
+    annotate("text", x = longs, y = 67.5, label = as.character(longs))
+}
+
+gg2_for_inset <- gg2 +
+  annotate("rect", xmin = 12, ymin = 65.2, xmax = 16.5, ymax = 67.5, 
+           fill = NA, color = "black", size = 1, linetype = 2) +
+  annotate("rect", xmin = 8, ymin = 62, xmax = 14.5, ymax = 64.8, 
+           fill = NA, color = "black", size = 1, linetype = 2)
+#?geom_rect
+
+# gg2_for_inset
+
+
+# Not very nice
+# gg2 + annotation_custom(
+#    ggplotGrob(gg_zoom2),
+#    xmin = 3.5, ymin = 63, xmax = 10, ymax = 68.5)
+
+# update.packages("cowplot")
+# update.packages("cowplot")
+
+img_trondelag <- magick::image_read("{folder_fig}/07_Map_tilstand_03_Trondelag.png") %>%
+  magick::image_transparent(color = "white")
+
+img_nordland <- magick::image_read("{folder_fig}/07_Map_tilstand_02_Nordland.png") %>%
+  magick::image_transparent(color = "white")
+
+gg2_with_insets <- cowplot::ggdraw(gg2_for_inset) +
+  cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.5) +
+  cowplot::draw_image(img_trondelag, x = 0.4, y = -0.15, width = 0.55, height = 0.75, scale = 1.5)
+
+cowplot::ggsave2("{folder_fig}/07_Map_tilstand_02_entire_with_insets.png", gg2_with_insets, width = 7, height = 8, dpi = 400)
+
+gg2_with_insets
+
+```
+
+
+## 3. Map for Methods
+### a. version 1
+```{r}
+# Old version
+# cols <- RColorBrewer::brewer.pal(3, "Dark2")
+
+# New version (should be "photocopy safe")
+# cols <- RColorBrewer::brewer.pal(4, "Spectral")[1:3]
+
+cols <- c("black", "grey50", "white", "grey50")
+shapes <- c(21, 21, 21, 24)   # circle, circle, circle, and triangle (see ?points)
+
+# df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations) +
+    annotation_map(map_norway, aes(long, lat), fill = "navajowhite") +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype)) +
+  scale_fill_manual(values = cols) +
+  scale_shape_manual(values = shapes) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        legend.position = c(.68, .15))
+
+
+if (save_plots)  
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter.png", gg, width = 6, height = 6.5, dpi = 500) 
+
+gg
+
+```
+
+### b. version 2 (no legend)
+```{r}
+
+gg2 <- gg + theme(legend.position = "none")
+if (save_plots)  
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_2.png", gg2, width = 6, height = 6.5, dpi = 500) 
+gg2
+
+```
+
+### c. Map with labels    
+
+```{r}
+# Set size of points in c1, c2 and c3
+pointsize_entire <- 4 
+pointsize_z1 <- 4.5
+pointsize_z2 <- 3.2
+
+# The following code is used in c4 and c5 when saving th eplots
+size_label_for_file <- paste(pointsize_entire*10, pointsize_z1*10, pointsize_z2*10, sep = "_")
+size_label_for_file
+
+```
+
+#### c1. Entire area   
+Names outside Trøndelag + Nordland only, i.e. south of Lat 62
+```{r, width = 9, height = 10}
+
+cols <- c("black", "black", "white", "black")
+shapes <- c(21, 4, 21, 13)   # circle, cross, circle, and circle w/ cross (see ?points)
+
+gg <- ggplot(df_stations) +
+    annotation_map(map_norway, aes(long, lat), fill = "navajowhite") +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), size = rel(pointsize_entire)) +
+  scale_fill_manual(values = cols) +
+  scale_shape_manual(values = shapes) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_void() +
+  theme(legend.position = c(.68, .15))
+# gg
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+gg_entire <- gg +
+  geom_text_repel(data = df_stations %>% filter(Lat < 62),
+                  aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
+                  size = 4,
+                  point.padding = 0.2, force = 0.3) +
+  coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  +
+  theme_void() +
+  theme(legend.position = c(0.99, 0.85),
+        legend.text = element_text(size = 13),
+        legend.title = element_text(size = 13))
+
+gg_entire
+
+if (save_plots)  {
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_n_entire1.png", gg_entire, width = 8, height = 6, dpi = 500) 
+  
+}
+
+
+```
+
+
+#### c3. Trøndelag (zoom 1)
+
+```{r, fig.height = 6, fig.width = 8}
+
+xlimits <- c(5, 15)
+ylimits <- c(62, 65)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+sel <- with(df_stations, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+labelsize <- 4
+
+#
+# Just for checking (finding p1, p2 etc.) 
+# 
+if (FALSE){
+  ggplot(data = df_stations[sel,], aes(Long, Lat, Long, Lat, label = Shortname)) +
+    geom_blank() +
+    annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+    geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype)) +
+    scale_fill_manual(values = cols) +
+    scale_shape_manual(values = shapes) +
+    geom_text_repel(data = df_stations[sel,],
+                    point.padding = 0.1,
+                    direction = "both", size = labelsize,
+                    force = 2
+    ) +
+    coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+    theme_nothing() +
+    theme(legend.position = "none")
+}
+
+
+p1 <- subset(df_stations, substr(Shortname,1,2) == "29")  # main division (W and east)
+p2 <- subset(df_stations, substr(Shortname,1,2) == "34")  # divides the E labels in two
+
+df1 <- subset(df_stations[sel,], Long > p1$Long & Lat > p2$Lat)      # NE points
+df2 <- subset(df_stations[sel,], Long > p1$Long & Lat <= p2$Lat)     # SE points
+df2 <- bind_rows(df2,
+                 subset(df_stations[sel,], Shortname == "Gruve.F7")) # SE points, one extra
+df3 <- subset(df_stations[sel,], Long <= p1$Long)                    # W points
+
+df_stations <- df_stations %>%
+  mutate(z1_subset = case_when(
+    Long > p1$Long & Lat > p2$Lat ~ "NE",
+    Long > p1$Long & Lat <= p2$Lat ~ "SE",
+    Shortname == "Gruve.F7" ~ "SE",
+    Long <= p1$Long ~ "W"
+  ))
+
+xtabs(~addNA(z1_subset), df_stations)
+#p1
+
+
+
+gg_trond <- ggplot(data = df_stations[sel,], aes(Long, Lat, label = Shortname)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), size = rel(pointsize_z1)) +
+  scale_fill_manual(values = cols) +
+  scale_shape_manual(values = shapes) +
+  # North-eastern points go to the east
+  geom_text_repel(data = df_stations[sel,] %>% filter(z1_subset %in% "NE"),
+                  aes(Long + 0.1),
+                  nudge_x = max(df1$Long) + 0.2 - df1$Long,
+                  point.padding = 0.2, 
+                  direction = "y", 
+                  size = labelsize,
+                  hjust = 0
+                  ) +
+  # South-eastern points go to the east
+  geom_text_repel(data = df_stations[sel,] %>% filter(z1_subset %in% "SE"),
+                  aes(Long + 0.1),
+                  nudge_x = max(df2$Long) + 0.2 - df2$Long,
+                  point.padding = 0.2, 
+                  direction = "y", 
+                  size = labelsize,
+                  hjust = 0
+                  ) +
+  # Western points go to the west
+  geom_text_repel(data = df_stations[sel,] %>% filter(z1_subset %in% "W"),
+                  aes(Long - 0.1),
+                  nudge_x = min(df3$Long) - 0.2 - df3$Long,
+                  point.padding = 0.2, 
+                  direction = "y", 
+                  size = labelsize,
+                  hjust = 1
+                  ) +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_void() +
+  theme(legend.position = "none")
+
+
+if (save_plots)  {
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_n_z1.png", gg_trond, width = 11, height = 8, dpi = 500) 
+  
+}
+
+gg_trond
+
+```
+
+
+
+#### c4. Entire area with insets  
+* cowplot approach (see https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
+* Insets made by 
+    - reading the saved files
+    - making the white areas transparent 
+    - inserting using cowplot::draw_image
+    - x, y, width, scale set by trial and error to some extent
+
+```{r, fig.width=10, fig.height=8}
+
+# https://www.r-bloggers.com/plots-within-plots-with-ggplot2-and-ggmap/
+
+if (FALSE){
+  #
+  # Used to find coordinates for annotate("rect") below
+  #
+  longs <- 3:18  
+  gg_entire + 
+    annotate("text", x = longs, y = 62, label = as.character(longs)) +
+    annotate("text", x = longs, y = 65, label = as.character(longs)) +
+    annotate("text", x = longs, y = 67.5, label = as.character(longs))
+}
+
+gg_for_inset <- gg_entire +
+  annotate("rect", xmin = 12, ymin = 65.2, xmax = 16.5, ymax = 67.5, 
+           fill = NA, color = "black", size = 1, linetype = 2) +
+  annotate("rect", xmin = 8, ymin = 62, xmax = 14.5, ymax = 64.8, 
+           fill = NA, color = "black", size = 1, linetype = 2)
+
+#?geom_rect
+
+# gg_for_inset
+
+
+# Not very nice
+# gg_entire + annotation_custom(
+#    ggplotGrob(gg_zoom2),
+#    xmin = 3.5, ymin = 63, xmax = 10, ymax = 68.5)
+
+# update.packages("cowplot")
+# update.packages("cowplot")
+
+img_trondelag <- magick::image_read("{folder_fig}/07_Map_for_methods_chapter_n_z1.png") %>%
+  magick::image_transparent(color = "white")
+
+# NOT NEEDED THIS YEAR
+# img_nordland <- magick::image_read("Figures/2020/07_Map_for_methods_chapter_n_z2.png") %>%
+#   magick::image_transparent(color = "white")
+
+gg_with_insets <- cowplot::ggdraw(gg_for_inset) +
+  # cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.2) +
+  cowplot::draw_image(img_trondelag, x = 0.45, y = -0.10, width = 0.55, height = 0.75, scale = 1.2)
+# gg_with_insets
+
+
+fn <- glue("{folder_fig}/07_Map_for_methods_chapter_n_with_insets_{size_label_for_file}.png")
+cowplot::ggsave2(fn, gg_with_insets, width = 10.8, height = 8, dpi = 500)
+
+# Show the saved version
+# (which is the actual end product) 
+magick::image_read(fn) %>% plot()
+
+```
+
+#### c5. Tall/narrow version of c4
+```{r, fig.width = 9, fig.height = 11}
+# , fig.width=10.8, fig.height=13
+
+gg_entire2 <- gg_entire +
+  theme(legend.position = c(0.2, 0.65))                    # move legend to the left
+
+gg_for_inset <- gg_entire2 +
+  theme(legend.position = c(0.2, 0.65)) +                    # move legend to the left
+  annotate("rect", xmin = 12, ymin = 65.2, xmax = 16.5, ymax = 67.5, 
+           fill = NA, color = "black", size = 1, linetype = 2) +
+  annotate("rect", xmin = 8, ymin = 62, xmax = 14.5, ymax = 64.8, 
+           fill = NA, color = "black", size = 1, linetype = 2)
+
+gg_with_insets2 <- cowplot::ggdraw(gg_for_inset) +
+  cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.2) +
+  # Move Trøndelagen further south and a bit to the left
+  cowplot::draw_image(img_trondelag, x = 0.43, y = -0.18, width = 0.55, height = 0.75, scale = 1.2)
+# gg_with_insets
+
+# gg_with_insets2
+
+if (save_plots)  {
+  
+  fn <- glue("{folder_fig}/07_Map_for_methods_chapter_n_with_insets2_{size_label_for_file}.png")
+  cowplot::ggsave(fn, gg_with_insets2, width = 10.8, height = 13, dpi = 500)
+
+}
+
+# 
+magick::image_read(fn) %>% plot()
+
+```
+
+Version 1 = all names
+Version 2 = Names outside Trøndelag + Nordland only, i.e. south of Lat 62
+```{r}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+# df <- data.frame(long = 10.66, lat = 59.92)
+gg <- ggplot(df_stations) +
+  annotation_map(map_norway, aes(long, lat), fill = "navajowhite2") +
+  geom_point(aes(Long, Lat, fill = Stasjonstype, shape = Stasjonstype), pch = 21, size = rel(3)) +
+  scale_fill_manual(values = cols) +
+  scale_shape_manual(values = shapes) +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72)) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        legend.position = "none") 
+gg
+
+
+gg3_ver1 <- gg +
+  geom_text_repel(aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
+                  size = 4,
+                  point.padding = 0.2, force = 0.3) +
+  coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  
+
+gg3_ver2 <- gg +
+  geom_text_repel(data = df_stations %>% filter(Lat < 62),
+                  aes(Long, Lat, label = sub("*", "", Shortname, fixed = TRUE)),   # remove asterisk
+                  size = 4,
+                  point.padding = 0.2, force = 0.3) +
+  coord_map("lambert", parameters = c(60, 80), , xlim = xlimits, ylim = ylimits)  
+
+
+#
+# Name with "n" for names
+#
+if (save_plots)  {
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_n_ver1.png", gg3_ver1, width = 10, height = 10, dpi = 500) 
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_n_ver1.svg", gg3_ver1, width = 10, height = 10) 
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_n_ver2.png", gg3_ver2, width = 10, height = 10, dpi = 500) 
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_n_ver2.svg", gg3_ver2, width = 10, height = 10) 
+  }
+
+gg3_ver1
+gg3_ver2
+
+```
+
+
+### d. Version 4: county map   
+
+**NOTE: Should add shape (in aes() + scale_shape_manual) for all maps. See 3a and 3c** 
+
+Use county map from GeoNorge (see 1a2)  
+```{r, warning = FALSE}
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+
+# Tried adding 'df_stations' using geom_point()  
+#    geom_point(data = df_stations, aes(Long, Lat))
+# but those points ended up in the Atlantic due to the Lambert projection  
+# Had to 1) Use st_as_sf() to turn df_stations into a 'proper spatial' (sf) object,
+#   then 2) plot it ising geom_sf(), not geom_point
+
+# 1
+df_stations_sf <- st_as_sf(df_stations, coords = c("Long", "Lat"),
+  crs = "+proj=longlat +ellps=WGS84", agr = "constant")
+
+# Element line must be a element_line object.
+
+# Projection used in map
+proj4string <- "+proj=laea +lat_0=64 +lon_0=12 +ellps=GRS80 +units=m +no_defs "
+
+# 2
+gg <- ggplot() + 
+  geom_sf(data = map_counties, fill = "navajowhite2", size = rel(0.2)) +
+  geom_sf(data = df_stations_sf, geom = "point", pch = 21, aes(fill = Stasjonstype), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("Stasjoner", values = cols) +
+  coord_sf(crs = st_crs(proj4string)) +
+  theme_bw() +
+  theme(axis.title = element_blank())
+
+gg1 <- gg + 
+  theme(legend.position = c(.68, .15))
+gg1
+
+if (save_plots)  {
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_f.png", gg1, width = 6, height = 6.5, dpi = 500) 
+  }
+```
+
+### e. Version 4 detail maps  
+
+**NOTE: Should add shape (in aes() + scale_shape_manual) for all maps. See 3a and 3c** 
+
+Trøndelag (zoom1) + Nordland (zoom2)
+```{r}
+
+# Note: adding just limits as (xlim, ylim), as below, doesn't work
+
+# gg2 <- gg +
+#     coord_sf(crs = st_crs(proj4string), xlim = c(7.5, 12.5), ylim = c(62, 64.2))
+
+# We must first define zoom area as "lower left" + "upper right" corner, 
+# then transform it, then 
+
+# Define areas as two points, which we then transform and then extract the coordinates 
+
+# Trøndelag  
+zoom1 <- st_sfc(st_point(c(7.5, 62)), st_point(c(12.5, 65)), crs = "+proj=longlat") %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates()
+
+# Nordland  
+zoom2 <- st_sfc(st_point(c(12.5, 65.5)), st_point(c(15.5, 67)), crs = "+proj=longlat") %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates()
+
+gg_zoom1 <- gg +
+  theme(legend.position = "none",
+        axis.text = element_blank()) +
+  coord_sf(crs = st_crs(proj4string), xlim = zoom1[,"X"], ylim = zoom1[,"Y"])
+
+gg_zoom2 <- gg +
+  theme(legend.position = "none",
+        axis.text = element_blank()) +
+  coord_sf(crs = st_crs(proj4string), xlim = zoom2[,"X"], ylim = zoom2[,"Y"])
+
+# gg_zoom2
+
+if (save_plots){
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_f_zoom1.png", gg_zoom1, width = 2.8, height = 2.8, dpi = 500)
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_f_zoom2.png", gg_zoom2, width = 2.5, height = 3, dpi = 500)  
+}
+
+
+```
+
+
+### f. Version 5: with names  
+Otherwise as 4 (ie with county lines)  
+Names outside Trøndelag + Nordland only, i.e. south of Lat 62
+
+**NOTE: Should add shape (in aes() + scale_shape_manual) for all maps. See 3a and 3c** 
+
+```{r}
+#
+# Entire country
+#
+
+# First, pick stations south of 62 
+#   (cannot do that after transformation)
+sel <- st_coordinates(df_stations_sf)[,"Y"] < 62
+
+# Transform selected stations to LAmbert and extract coordinates
+df_names <- df_stations_sf[sel,] %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates() %>%
+  data.frame()
+
+# And then we can fetch the station names
+df_names$Shortname <-  df_stations_sf[sel,]$Shortname
+
+gg1n <- ggplot() + 
+  geom_sf(data = map_counties, color = "grey50", fill = "navajowhite2", size = rel(0.5)) +
+  geom_sf(data = df_stations_sf, aes(fill = Stasjonstype),
+          geom = "point", pch = 21, , size = rel(1.7), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("", values = cols) +
+  # Transpose but no zoom:
+  coord_sf(crs = st_crs(proj4string)) +
+  geom_text_repel(data = df_names,
+                  aes(X, Y, label = Shortname),
+                  size = 4,
+                  color = "blue3",
+                  point.padding = 0.15, force = 0.3) +  
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        legend.text = element_text(size = 13),
+        legend.position = c(.68, .1))
+# gg1n
+
+if (save_plots)  {
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_fn.png", gg1n, width = 11, height = 12, dpi = 500) 
+  
+  }
+
+```
+
+### g. Version 5 zoom region 1     
+Ie Trøndelag  
+
+**NOTE: Should add shape (in aes() + scale_shape_manual) for all maps. See 3a and 3c** 
+
+```{r}
+#
+# Entire country
+#
+
+# First, pick stations in zoom region
+sel <- st_coordinates(df_stations_sf)[,"Y"] > 62 &
+  st_coordinates(df_stations_sf)[,"Y"] < 65
+
+# Transform selected stations to LAmbert and extract coordinates
+df_names <- df_stations_sf[sel,] %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates() %>%
+  data.frame()
+
+# And then we can fetch the station names
+df_names$Shortname <-  df_stations_sf[sel,]$Shortname
+
+gg1n <- ggplot() + 
+  geom_sf(data = map_counties, color = "grey50", fill = "navajowhite2", size = rel(0.5)) +
+  geom_sf(data = df_stations_sf, aes(fill = Stasjonstype),
+          geom = "point", pch = 21, , size = rel(2.5), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("", values = cols) +
+  # Zoom region given here
+  coord_sf(crs = st_crs(proj4string), xlim = zoom1[,"X"], ylim = zoom1[,"Y"]) +
+  geom_text_repel(data = df_names,
+                  aes(X, Y, label = Shortname),
+                  size = 6,
+                  color = "blue3",
+                  point.padding = 0.35, force = 0.3) +  
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        legend.position = "none")                # no legend needed
+# gg1n
+
+if (save_plots)  {
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_fn_z1.png", gg1n, width = 11, height = 12, dpi = 500) 
+  
+  }
+
+```
+
+
+### h. Version 5 zoom region 2     
+Ie Nordland  
+
+**NOTE: Should add shape (in aes() + scale_shape_manual) for all maps. See 3a and 3c** 
+
+```{r}
+#
+# Entire country
+#
+
+# First, pick stations in zoom region
+sel <- st_coordinates(df_stations_sf)[,"Y"] > 65
+
+# Transform selected stations to LAmbert and extract coordinates
+df_names <- df_stations_sf[sel,] %>%
+  st_transform(crs = st_crs(proj4string)) %>%
+  st_coordinates() %>%
+  data.frame()
+
+# And then we can fetch the station names
+df_names$Shortname <-  df_stations_sf[sel,]$Shortname
+
+gg1n <- ggplot() + 
+  geom_sf(data = map_counties, color = "grey50", fill = "navajowhite2", size = rel(0.5)) +
+  geom_sf(data = df_stations_sf, aes(fill = Stasjonstype),
+          geom = "point", pch = 21, , size = rel(2.5), 
+          show.legend = "point") +     # Note: have to specify that legend should be "point" (not area)
+  scale_fill_manual("", values = cols) +
+  # Zoom region given here
+  coord_sf(crs = st_crs(proj4string), xlim = zoom2[,"X"], ylim = zoom2[,"Y"]) +
+  geom_text_repel(data = df_names,
+                  aes(X, Y, label = Shortname),
+                  size = 6,
+                  color = "blue3",
+                  point.padding = 0.35, force = 0.3) +  
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        legend.position = "none")                # no legend needed
+# gg1n
+
+if (save_plots)  {
+  ggsave2("{folder_fig}/07_Map_for_methods_chapter_fn_z2.png", gg1n, width = 11, height = 12, dpi = 500) 
+  
+  }
+
+```
+
+## 4. Pie map for Results
+
+### a. Define df_range 
+```{r}
+# Define two points in lower left and upper right corner (just used to set the drawing canvas)
+df_range <- data.frame(x = c(5.72, 31), y = c(58.14, 71))
+
+```
+
+### b. Start making 'df_pies'  
+Also writes df_stations_vf to excel (later manipulated semi-manually and used in part 6)   
+```{r}
+# Get location data on Vannforekomst-level
+# In this case, just the same...
+
+df_pies <- df_stations
+
+# Write to xlsx (used in part 6)
+# openxlsx::write.xlsx(df_stations_vf, "Data/03_df_stations_vf.xlsx")
+
+# Start with data_index, add locations
+
+# nrow(data_index)
+# df_pies <- data_index %>% 
+#   left_join(df_stations_vf %>% select(VannforekomstID, Long, Lat))
+# nrow(df_pies)
+
+```
+
+
+### c. Make pies from data frame 'df_pies', and add to 'df_pies'
+```{r}
+### c. Define pies from data
+x1 <- df_pies$Index_ecol
+x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
+x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+df_pies$Class_ecol <- x3
+df_pies$Colour_ecol <- class_colors[x2]
+
+
+# Quick check
+# table(x1 > 0.6, df_pies$Colour_ecol)
+#
+#          005CE6 #009036 #EC1C24 #F29400 #FFEC00
+#   FALSE       0       0       2       2       5
+#   TRUE        8      19       0       0       0
+
+df_pies$Colour_chem <- case_when(
+  df_pies$Class_chem %in% "God" ~ class_colors["Svært god"],
+  df_pies$Class_chem %in% "Ikke god" ~ class_colors["Svært dårlig"],
+  df_pies$Class_chem %in% "i.d." ~ class_colors["Uklassifisert"],
+  is.na(df_pies$Class_chem) ~ class_colors["Uklassifisert"]
+)
+# table(df_pies$Colour_chem)
+
+make_pie_linenumber_indexvalues <- function(i){
+  df <- df_pies[i, c("Colour_ecol", "Colour_chem")]
+  make_pie_from_colours(as.character(df))
+}
+# make_pie_linenumber_indexvalues(1)
+# make_pie_linenumber_indexvalues(2)
+# make_pie_linenumber_indexvalues(4)
+
+pies <- 1:nrow(df_pies) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
+length(pies)
+# pies[[9]]
+
+# Add pies to dataframe
+df_pies$pie = pies
+
+
+saveRDS(df_pies,  "Data/07_df_pies.RData")
+
+```
+
+### d. Test map
+```{r}
+# df <- data.frame(long = 10.66, lat = 59.92)
+# gg <- ggplot(df_stations_vf, aes(Long, Lat)) +
+gg <- ggplot(df_pies, aes(Long, Lat)) +
+    annotation_map(map_norway, aes(long, lat), fill = "grey60") +
+  geom_point() +
+  coord_map("lambert", parameters = c(64, 12), xlim = c(-1,30), ylim = c(57, 72))
+gg
+```
+
+### e. Entire Norway  
+Need to use Mercator projection, geom_subview doesn't work with other projections
+```{r, fig.height = 6, fig.width = 6}
+#
+# Without all labels
+#
+df_pies$width = 0.7*1.2    # Sets size of pies
+df_pies$height = 0.3*1.2   
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+  geom_subview(data = df_pies, aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  theme_nothing()
+
+if (save_plots)  
+  ggsave2("{folder_fig}/07_Map_tilstand_01.png", gg, width = 10, height = 11, dpi = 500) 
+
+gg
+
+```
+
+
+### f. Check longitude values
+```{r, fig.height = 3, fig.width = 5}
+ggplot(df_pies, aes(x = Lat)) + geom_histogram(binwidth = 0.1)
+```
+
+### g1. Trøndelag (zoom 1)
+
+```{r, fig.height = 6, fig.width = 8}
+xlimits <- c(5, 15)
+ylimits <- c(62.5, 65)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+# We divide up pie labels, so some are pushed to the West, other to the East
+sel_w <- substr(df_pies$Shortname,1,2) %in% c("21","24","22", "27", "30", "33", "39", "41")  # to West
+sel_ws <- substr(df_pies$Shortname,1,2) %in% c("26")    # To East and a little south
+sel_es <- substr(df_pies$Shortname,1,2) %in% c("38")    # To East and a little south
+sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
+
+labelsize <- 5
+
+gg_zoom1 <- ggplot(data=df_range, aes(x, y)) + 
+  
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+  geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel & sel_w,], 
+                  aes(Long - 0.15, Lat, label = Shortname), 
+                  point.padding = 0.1, nudge_x = -0.2, 
+                  direction = "y", hjust = 1, size = labelsize) +
+  geom_text_repel(data = df_pies[sel & sel_ws,], 
+                  aes(Long - 0.15, Lat - 0.05, label = Shortname), 
+                  point.padding = 0.1, nudge_x = 0.05, nudge_y = -0.1, 
+                  direction = "y", hjust = 1, size = labelsize) +
+  geom_text_repel(data = df_pies[sel & sel_es,],
+                  aes(Long + 0.07, Lat - 0.05, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.02, nudge_y = -0.1, 
+                  direction = "y", hjust = 0, size = labelsize) +
+  geom_text_repel(data = df_pies[sel & sel_e,],
+                  aes(Long + 0.15, Lat, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.2,
+                  direction = "y", hjust = 0, size = labelsize) +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave2("{folder_fig}/07_Map_tilstand_03_Trondelag.png", gg_zoom1, width = 11, height = 7, dpi = 500) 
+ 
+
+gg_zoom1
+
+```
+
+
+### g2. Nordland (zoom 2)
+Including annotation 
+
+```{r, fig.height = 6, fig.width = 6}
+xlimits <- c(10, 20)
+ylimits <- c(65.3, 67.3)
+
+# Aspect ratio of map = ratio of (length of 1 latitude)/(length of 1 longitude)
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+gg_zoom2 <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+  geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel,], aes(Long + 0.2, Lat, label = Shortname),  # 0.2: move start point of lines to right
+                  point.padding = 0.1,   # Avoid overlap with points
+                  nudge_x = 0.5,         # Nudge labels to the East
+                  direction = "y",       # Move in E-W direction
+                  hjust = 0,             # Line is anchored at the left side of the text strings
+                  size = labelsize) +            # Font size
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+   ggsave2("{folder_fig}/07_Map_tilstand_02_Nordland.png", gg_zoom2, width = 11, height = 7, dpi = 500) 
+
+gg_zoom2
+
+```
+
+
+### h1. Entire area, names S of Trøndelag
+```{r, fig.height = 6, fig.width = 6}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+df_pies$width = 0.7*0.8    # Sets size of pies
+df_pies$height = 0.3*0.8   
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +
+  geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
+
+gg2 <- gg + 
+  geom_text_repel(data = df_pies %>% filter(Lat < 62),   #names S of Trøndelag only
+                  aes(Long, Lat, label = Shortname),
+                  size = 4,
+                  point.padding = 0.5, force = 0.3) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots){
+  ggsave2("{folder_fig}/07_Map_tilstand_Entire.png", gg2, width = 11, height = 12, dpi = 500) 
+  ggsave2("{folder_fig}/07_Map_tilstand_Entire.svg", gg2, width = 11, height = 12) 
+  }
+
+
+# windows(10,10)
+gg2
+
+
+```
+
+### h2. Entire area with insets  
+* cowplot approach (see https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
+* Insets made by 
+    - reading the saved files
+    - making the white areas transparent 
+    - inserting using cowplot::draw_image
+    - x, y, width, scale set by trial and error to some extent
+
+```{r, fig.width=7, fig.height=8}
+
+# https://www.r-bloggers.com/plots-within-plots-with-ggplot2-and-ggmap/
+
+if (FALSE){
+  #
+  # Used to find coordinates for annotate("rect") below
+  #
+  longs <- 3:18  
+  gg2 + 
+    annotate("text", x = longs, y = 62, label = as.character(longs)) +
+    annotate("text", x = longs, y = 65, label = as.character(longs)) +
+    annotate("text", x = longs, y = 67.5, label = as.character(longs))
+}
+
+gg2_for_inset <- gg2 +
+  annotate("rect", xmin = 12, ymin = 65.2, xmax = 16.5, ymax = 67.5, 
+           fill = NA, color = "black", size = 1, linetype = 2) +
+  annotate("rect", xmin = 8, ymin = 62, xmax = 14.5, ymax = 64.8, 
+           fill = NA, color = "black", size = 1, linetype = 2)
+#?geom_rect
+
+# gg2_for_inset
+
+
+# Not very nice
+# gg2 + annotation_custom(
+#    ggplotGrob(gg_zoom2),
+#    xmin = 3.5, ymin = 63, xmax = 10, ymax = 68.5)
+
+# update.packages("cowplot")
+# update.packages("cowplot")
+
+img_trondelag <- magick::image_read("{folder_fig}/07_Map_tilstand_03_Trondelag.png") %>%
+  magick::image_transparent(color = "white")
+
+img_nordland <- magick::image_read("{folder_fig}/07_Map_tilstand_02_Nordland.png") %>%
+  magick::image_transparent(color = "white")
+
+gg2_with_insets <- cowplot::ggdraw(gg2_for_inset) +
+  cowplot::draw_image(img_nordland, x = 0.05, y = 0.45, width = 0.55, height = 0.75, scale = 1.5) +
+  cowplot::draw_image(img_trondelag, x = 0.4, y = -0.15, width = 0.55, height = 0.75, scale = 1.5)
+
+cowplot::ggsave2("{folder_fig}/07_Map_tilstand_02_entire_with_insets.png", gg2_with_insets, width = 7, height = 8, dpi = 400)
+
+gg2_with_insets
+
+```
+
+### i. Sør-Norge
+```{r, fig.height = 6, fig.width = 6}
+xlimits <- c(4.5, 13)
+ylimits <- c(57.8, 61.8)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+sel_w <- substr(df_pies$Shortname,1,2) %in% c("12", "01", "02")  # to West
+# sel_ws <- substr(df_pies$Shortname,1,2) %in% c("26")    # To East and a little south
+# sel_es <- substr(df_pies$Shortname,1,2) %in% c("38")    # To East and a little south
+sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
+sel_e <- !sel_w
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+  geom_subview(data = df_pies[sel,], aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel & sel_e,],
+                  aes(Long_pie + 0.15, Lat_pie, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.2,
+                  direction = "y", hjust = 0, size = labelsize) +
+  geom_text_repel(data = df_pies[sel & sel_w,],
+                  aes(Long_pie - 0.15, Lat_pie, label = Shortname),
+                  point.padding = 0.1, nudge_x = - 0.2,
+                  direction = "y", hjust = 1, size = labelsize) +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave2("{folder_fig}/07_Map_tilstand_04_Sør-Norge.png", gg, width = 9.5, height = 9, dpi = 500) 
+
+gg
+
+```
+
+### j. Entire area with names
+```{r, fig.height = 6, fig.width = 6}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+df_pies$width = 0.7*0.8    # Sets size of pies
+df_pies$height = 0.3*0.8   
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+gg <- ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +
+  geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
+
+gg2 <- gg + 
+  geom_text_repel(data = df_pies, aes(Long, Lat, label = Shortname),
+                  size = 4,
+                  point.padding = 0.5, force = 0.3) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots){
+  ggsave2("{folder_fig}/07_Map_tilstand_Entire.png", gg2, width = 11, height = 12, dpi = 500) 
+  ggsave2("{folder_fig}/07_Map_tilstand_Entire.svg", gg2, width = 11, height = 12) 
+}
+
+
+# windows(10,10)
+gg2
+
+
+```
+
+
+
+### x. Sample pie   
+To glue onto the map using e.g. MS Paint  
+See  
+- 03_Map_index_sample_pie.png  
+- 03_Map_index_sample_pie2.png
+
+## 5. Plots using map with counties (fylke)
+
+### a1. Get coordinates of county map  
+```{r}
+df_counties <- st_coordinates(map_counties) %>% as.data.frame()
+
+# head(df_counties)
+# length(unique(df_counties[,"L1"]))
+# length(unique(df_counties[,"L2"]))
+# length(unique(df_counties[,"L3"]))
+
+colnames(df_counties) <- c("long", "lat", "L1", "group", "id")
+
+# table(df_counties$L1)
+# table(df_counties$id)
+
+```
+
+### a2. Build up background  
+```{r}
+ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  geom_polygon()
+
+gg1 <- gg2 <- gg3 <- 
+  ggplot(data=df_range, aes(x, y)) + 
+  geom_blank()
+for (i in 1:18){
+  gg1 <- gg1 + 
+    geom_path(data = df_counties %>% filter(id %in% i), aes(long, lat, group = group))
+  gg2 <- gg2 + 
+    geom_path(data = df_counties %>% filter(L1 == 1 & id %in% i), aes(long, lat, group = group))
+  gg3 <- gg3 + 
+    geom_polygon(data = df_counties %>% filter(L1 == 1 & id %in% i), 
+                 aes(long, lat, group = group), fill = "navajowhite", color = "grey40")
+}
+
+gg1
+gg2
+gg3
+
+gg_start <- gg3
+# gg_start
+
+#  geom_path(data = df %>% filter(L1 == 1 & group == 1), aes(long, lat, group = group))
+
+#  annotation_map(df2, aes(x, y, color = fylkesnavn))
+
+
+#  annotation_map(df, aes(X, Y), fill = "navajowhite2")
+#  annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2")
+
+```
+
+### g. Nordland  
+Including annotation 
+
+```{r, fig.height = 6, fig.width = 6}
+xlimits <- c(10, 20)
+ylimits <- c(65.3, 67.3)
+
+# Aspect ratio of map = ratio of (length of 1 latitude)/(length of 1 longitude)
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+gg <- gg_start +
+  geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel,], aes(Long + 0.2, Lat, label = Shortname),  # 0.2: move start point of lines to right
+                  point.padding = 0.1,   # Avoid overlap with points
+                  nudge_x = 0.5,         # Nudge labels to the East
+                  direction = "y",       # Move in E-W direction
+                  hjust = 0,             # Line is anchored at the left side of the text strings
+                  color = "blue4",
+                  size = 8) +            # Font size
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave2("{folder_fig}/07_Map_tilstand_02_Nordland_f.png", gg, width = 11, height = 7, dpi = 500) 
+
+# gg
+
+```
+
+
+### h. Trøndelag
+```{r, fig.height = 6, fig.width = 8}
+xlimits <- c(5, 15)
+ylimits <- c(62.5, 65)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+# We divide up pie labels, so some are pushed to the West, other to the East
+sel_w <- substr(df_pies$Shortname,1,2) %in% c("21","24","22", "27", "30", "33", "39", "41")  # to West
+sel_ws <- substr(df_pies$Shortname,1,2) %in% c("26")    # To East and a little south
+sel_es <- substr(df_pies$Shortname,1,2) %in% c("38")    # To East and a little south
+sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
+
+# Version in part 4:
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+
+gg <- gg_start +
+  geom_subview(data = df_pies[sel,], aes(x=Long, y=Lat, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel & sel_w,], 
+                  aes(Long - 0.15, Lat, label = Shortname), 
+                  point.padding = 0.1, nudge_x = -0.2, 
+                  direction = "y", hjust = 1, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_ws,], 
+                  aes(Long - 0.15, Lat - 0.05, label = Shortname), 
+                  point.padding = 0.1, nudge_x = 0.05, nudge_y = -0.1, 
+                  direction = "y", hjust = 1, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_es,],
+                  aes(Long + 0.07, Lat - 0.05, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.02, nudge_y = -0.1, 
+                  direction = "y", hjust = 0, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_e,],
+                  aes(Long + 0.15, Lat, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.2,
+                  direction = "y", hjust = 0, size = 5, color = "blue4") +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave2("{folder_fig}/07_Map_tilstand_03_Trøndelag_f.png", gg, width = 11, height = 7, dpi = 500) 
+
+# gg
+
+```
+
+
+### i. Sør-Norge
+```{r, fig.height = 6, fig.width = 6}
+xlimits <- c(4.5, 13)
+ylimits <- c(57.8, 61.8)
+
+# Aspect ratio
+aspectratio <- 111500/longitude.length(mean(ylimits))
+
+df_pies$width = 0.7*0.6    # Sets size of pies
+df_pies$height = 0.3*0.6   
+
+sel <- with(df_pies, 
+        Long > xlimits[1] & Long < xlimits[2] &
+        Lat > ylimits[1] & Lat < ylimits[2])
+
+sel_w <- substr(df_pies$Shortname,1,2) %in% c("12", "01", "02")  # to West
+# sel_ws <- substr(df_pies$Shortname,1,2) %in% c("26")    # To East and a little south
+# sel_es <- substr(df_pies$Shortname,1,2) %in% c("38")    # To East and a little south
+sel_e <- !(sel_w | sel_ws | sel_es)   # To the East
+sel_e <- !sel_w
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+# Version in part 4
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite") +
+
+gg <- gg_start +
+  geom_subview(data = df_pies[sel,], aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height)) +
+  geom_text_repel(data = df_pies[sel & sel_e,],
+                  aes(Long_pie + 0.15, Lat_pie, label = Shortname),
+                  point.padding = 0.1, nudge_x = 0.2,
+                  direction = "y", hjust = 0, size = 5, color = "blue4") +
+  geom_text_repel(data = df_pies[sel & sel_w,],
+                  aes(Long_pie - 0.15, Lat_pie, label = Shortname),
+                  point.padding = 0.1, nudge_x = - 0.2,
+                  direction = "y", hjust = 1, size = 5, color = "blue4") +
+  coord_fixed(ratio = aspectratio, xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots)
+  ggsave2("{folder_fig}/07_Map_tilstand_04_Sør-Norge_f.png", gg, width = 9.5, height = 9, dpi = 500) 
+
+# gg
+
+```
+
+
+### j. Entire area with names   
+But names only south of Trøndelag  
+```{r, fig.height = 6, fig.width = 6}
+
+xlimits <- c(3, 20)
+ylimits <- c(58, 67.3)
+
+df_pies$width = 0.7*0.8    # Sets size of pies
+df_pies$height = 0.3*0.8   
+
+# Put the pie of 12. and 15 *slightly* (ca 3 km) to the south
+# Make variables Long_pie and Lat_pie solely for this, used for both pies and geom_text_repel
+sel_pienudge <- substr(df_pies$Shortname,1,2) %in% c("12", "15")
+df_pies$Lat_pie <- df_pies$Lat
+df_pies$Long_pie <- df_pies$Long
+df_pies$Lat_pie[sel_pienudge] <- df_pies$Lat[sel_pienudge] - 0.025
+
+
+# Version in part 4
+# gg <- ggplot(data=df_range, aes(x, y)) + 
+#   geom_blank() +
+#   annotation_map(map_norway_h, aes(long, lat), fill = "navajowhite2") +
+
+gg <- gg_start +
+  geom_subview(data = df_pies, aes(x=Long_pie, y=Lat_pie, subview=pie, width=width, height=height))
+
+gg2 <- gg + 
+  geom_text_repel(data = df_pies %>% filter(Lat < 62),    # names only south of Trøndelag 
+                  aes(Long, Lat, label = Shortname),
+                  size = 4,
+                  color = "blue4",
+                  point.padding = 0.5, force = 0.3) +
+  coord_cartesian(xlim = xlimits, ylim = ylimits) +
+  theme_nothing()
+
+if (save_plots){
+  ggsave2("{folder_fig}/07_Map_tilstand_Entire_f.png", gg2, width = 11, height = 12, dpi = 500) 
+  ggsave2("{folder_fig}/07_Map_tilstand_Entire_f.svg", gg2, width = 11, height = 12) 
+}
+
+
+# windows(10,10)
+# gg2
+
+
+```
+
+## 6. Bar plots
+### a. Eutrofiering
+```{r, fig.height=7}
+label <- "Samlet eutrofieringstilstand (nEQR)"
+plotno <- "1a"
+# debugonce(make_indexplot)
+
+gg <- make_indexplot(df_index_barplot, "nEQR_eutrofi", label)
+if (save_plots){
+  ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".png"), gg, 
+         width = 8.5, height = 10.5, dpi = 500)
+  ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".svg"), gg, 
+         width = 8.5, height = 10.5)
+}
+gg
+
+```
+
+### b. Forsuring (acidification)
+```{r, fig.height=7}
+
+label <- "Samlet forsuringstilstand (nEQR)"
+plotno <- "1b"
+gg <- make_indexplot(df_index_barplot, "nEQR_forsuring", label)
+if (save_plots){
+  ggsave2("{folder_fig}/07_{plotno}_{label}.png", gg, 
+         width = 8.5, height = 10.5, dpi = 500)
+  ggsave2("{folder_fig}/07_{plotno}_{label}.svg", gg, 
+         width = 8.5, height = 10.5, dpi = 500)
+  }
+gg
+
+```
+
+
+### c. Samlet økologisk tilstand 
+```{r, fig.height=8.5}
+label <- "Samlet økologisk tilstand (nEQR)"
+plotno <- "1c"
+gg1 <- make_indexplot(df_index_barplot, "nEQR_ecol", label)
+gg2 <- gg1 + 
+  # Add all-white label (to cover the vertical lines)
+  # (this is a workaround, as 'colour' seems to control both text and border colour...)
+  # geom_label(aes(Rapportnavn, Indeksverdi, label = Label),
+  #            hjust = 0, nudge_y = 0.005, nudge_x = 0, color = "white", fill = "white") +
+  # Add text
+  geom_text(aes(Rapportnavn, Indeksverdi, label = Label),
+             hjust = 0, nudge_y = 0.005, nudge_x = 0)
+gg3 <- gg2 + 
+  theme(axis.text.y = element_blank())
+#gg3
+
+if (save_plots){
+  ggsave2("{folder_fig}/07_{plotno}_{label}_ver1.png", gg1, 
+         width = 8.5, height = 10.5, dpi = 500)
+  ggsave2("{folder_fig}/07_{plotno}_{label}_ver1.svg", gg1, 
+         width = 8.5, height = 10.5, dpi = 500)
+  ggsave2("{folder_fig}/07_{plotno}_{label}_ver2.png", gg2, 
+         width = 8.5, height = 10.5, dpi = 500)
+  ggsave2("{folder_fig}/07_{plotno}_{label}_ver2.svg", gg2, 
+         width = 8.5, height = 10.5, dpi = 500)
+  ggsave2("{folder_fig}/07_{plotno}_{label}_ver3.png", gg3, 
+         width = 8.5, height = 10.5, dpi = 500)
+  ggsave2("{folder_fig}/07_{plotno}_{label}_ver3.svg", gg3, 
+         width = 8.5, height = 10.5, dpi = 500)
+}
+
+gg1
+gg2
+gg3
+
+
+```
+
+
