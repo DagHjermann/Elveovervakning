@@ -8,22 +8,11 @@ output:
 
 ---
 
-Plots for report 2020 (*data* from 2019!)   
-* Overview maps (types of stations) for Methods chapter (section 3)  
-* Pies (for chemical/ecological 'tilstand') on maps for Results (sections 4-5)   
-* Bar plots for 'tilstand' (section 6)  
-  
-First round of maps/figures (moved to Figures/07_Old):   
-* No county borders   
-* Not including "lange tidsserier" ('long time-series' stations)  
-* Somewhat different colors etc.    
-  
-Second round of maps/figures:    
-* Map for methods (points = type of station) w/o county borders - 3a-c (3c5 used in report)
-* Map for methods (points = type of station) with county borders - 3d-h
-* Map for results (points = pie) w/o county borders - 4g-h (4h2 used in report)
-* Map for results (points = pie) with county borders - 5
-* "Lange tidsserier" ('long time-series' stations) are used for Methods map, not in Results  
+
+
+**NOTE: THIS FILE IS OBSOLETE AND REPLACED BY SCRIPTS 7a-d for 2020 **
+
+
 
 ## 1. Prerequisites  
 
@@ -2337,78 +2326,5 @@ if (save_plots){
 
 ```
 
-## 6. Bar plots
-### a. Eutrofiering
-```{r, fig.height=7}
-label <- "Samlet eutrofieringstilstand (nEQR)"
-plotno <- "1a"
-# debugonce(make_indexplot)
-
-gg <- make_indexplot(df_index_barplot, "nEQR_eutrofi", label)
-if (save_plots){
-  ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".png"), gg, 
-         width = 8.5, height = 10.5, dpi = 500)
-  ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".svg"), gg, 
-         width = 8.5, height = 10.5)
-}
-gg
-
-```
-
-### b. Forsuring (acidification)
-```{r, fig.height=7}
-
-label <- "Samlet forsuringstilstand (nEQR)"
-plotno <- "1b"
-gg <- make_indexplot(df_index_barplot, "nEQR_forsuring", label)
-if (save_plots){
-  ggsave2("{folder_fig}/07_{plotno}_{label}.png", gg, 
-         width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}.svg", gg, 
-         width = 8.5, height = 10.5, dpi = 500)
-  }
-gg
-
-```
-
-
-### c. Samlet økologisk tilstand 
-```{r, fig.height=8.5}
-label <- "Samlet økologisk tilstand (nEQR)"
-plotno <- "1c"
-gg1 <- make_indexplot(df_index_barplot, "nEQR_ecol", label)
-gg2 <- gg1 + 
-  # Add all-white label (to cover the vertical lines)
-  # (this is a workaround, as 'colour' seems to control both text and border colour...)
-  # geom_label(aes(Rapportnavn, Indeksverdi, label = Label),
-  #            hjust = 0, nudge_y = 0.005, nudge_x = 0, color = "white", fill = "white") +
-  # Add text
-  geom_text(aes(Rapportnavn, Indeksverdi, label = Label),
-             hjust = 0, nudge_y = 0.005, nudge_x = 0)
-gg3 <- gg2 + 
-  theme(axis.text.y = element_blank())
-#gg3
-
-if (save_plots){
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver1.png", gg1, 
-         width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver1.svg", gg1, 
-         width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver2.png", gg2, 
-         width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver2.svg", gg2, 
-         width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver3.png", gg3, 
-         width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver3.svg", gg3, 
-         width = 8.5, height = 10.5, dpi = 500)
-}
-
-gg1
-gg2
-gg3
-
-
-```
 
 
