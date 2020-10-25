@@ -60,6 +60,35 @@ crs_string <- function(projection, zone = NA){
 # crs_string("longlat")
 # crs_string("utm", 32)
 
+
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# Fix river errors ----
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
+
+fix_river_errors <- function(data, limit_meters = 5000){
+  
+  check <- data %>%
+    group_by(group) %>%
+    mutate(dx = x - lag(x), dy = y - lag(y),
+           dist = sqrt((dx^2) + (dy^2)))
+  
+  # Find big jump in the segment
+  i <- which(check$dist > limit_meters)
+  
+  # Delete last point befre the big jump
+  if (length(i) > 0){
+    data$x[i-1] <- NA
+    data$y[i-1] <- NA
+  }
+  
+  data
+  
+}
+
+
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 #
 # Labeling functions ----
