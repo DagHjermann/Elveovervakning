@@ -9,7 +9,8 @@ output:
 ---
 
 Plots for report 2020 (*data* from 2019!)   
-* Get data (used for both maps and figures)  
+* Get data (used for both maps and figures)   
+* These data are used both by scripts 7b, 7c (which also needs some data from 7b), and 7c  
 
 
 ## 1. Prerequisites  
@@ -24,7 +25,9 @@ library(readxl)
 
 
 ## 2. Data
-### a. Read station data (coordinates) for all sample sites
+### a. Read station data (coordinates) for all sample sites  
+These are from   
+`K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2019\Opsjon 3 biologi\Figurer og Kart (Dag)`  
 ```{r}
 df_stations_all <- read_excel(
   "Data_input/2020/KartOgFigurgrunnlag_TilDag.xlsx", 
@@ -57,9 +60,10 @@ df_stations <- df_stations_all %>%
   summarise(Long = mean(Long),
             Lat = mean(Lat),
             Index_ecol = first(Index_ecol),
-            Class_chem = first(Class_chem)) %>%
+            Class_chem = first(Class_chem)) %>% # View()
   mutate(
     Stasjonstype = case_when(
+      !is.na(Index_ecol) & is.na(Class_chem) ~ "Økologisk tilstand",
       !is.na(Index_ecol) & Class_chem %in% "i.d." ~ "Økologisk tilstand",
       !is.na(Index_ecol) & Class_chem != "i.d." ~ "Økologisk og kjemisk tilstand",
       grepl("^Gruve", Shortname) ~ "Gruvevassdrag (lange tidsserier)",
@@ -70,7 +74,7 @@ df_stations <- df_stations_all %>%
                             "Gruvevassdrag (lange tidsserier)"))
   )
 
-xtabs(~Stasjonstype + addNA(Class_chem), df_stations)
+xtabs(~addNA(Stasjonstype) + addNA(Class_chem), df_stations)
 
 ```
 

@@ -2,7 +2,11 @@
 title: "Untitled"
 author: "DHJ"
 date: "23 10 2020"
-output: html_document
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    
 ---
 
 
@@ -19,7 +23,7 @@ Overview maps (types of stations) for Methods chapter (section 3)
 #
 #
 save_plots <- TRUE
-save_plots <- FALSE
+# save_plots <- FALSE
 
 
 #
@@ -31,10 +35,11 @@ folder_fig <- "Figures/2020"
 ```
 
 ### b. Libs + map  
-```{r}
+```{r, results='hide', warning=FALSE, message=FALSE}
 library(tidyverse)  # filter, group_by, summary, etc.
 library(readxl)
 library(cowplot)
+library(glue)
 
 source("07_Figures_functions.R")
 
