@@ -27,12 +27,12 @@ Overview of process:
     - box_corners (used to make the inset plots, 'make_subplot_nolabels', and to filter stations for these)
     - box_polygons (used to plot inset rectangles on the big map, 6b)  
 5. Is used only as a fast way to make a draft map with labels (used as help for 6a)
-6. Build gg3 plot
+6. Build gg3a plot
     - Build gg2 plot based on background map (gg_back + rivers) + labels, group by group  
-    - gg3 map = gg2 map plus boxes   
+    - gg3a map = gg2 map plus boxes   
 7. Functions for making insets  
 8. Make insets including labels. the resukt is a list of ggplot objects)
-9. Make final plot by plotting gg3 plus each of the insets   
+9. Make final plot by adding legend (gg3b), then plot gg3b plus each of the insets   
     - position of insets is quite a bit try and error   
 
 
@@ -46,7 +46,7 @@ Overview of process:
 #
 #
 save_plots <- TRUE
-save_plots <- FALSE
+# save_plots <- FALSE
 
 
 #
@@ -209,13 +209,69 @@ if (FALSE)
 
 ```{r}
 
-nc_rivers <- st_read(
+nc_rivers_strahler4 <- st_read(
   "K:\\Kart\\ELVIS\\Hovedelv\\elvis_hovedelv.shp",
-  query = "SELECT * FROM elvis_hovedelv WHERE STRAHLER >= 7")  # only big rivers; saves a little time
+  query = "SELECT * FROM elvis_hovedelv WHERE STRAHLER >= 4")  # only big rivers; saves a little time
 #  UTM zone 33
 
 # Extract coordinates and Transform from UTM33 to UTM32
-df_rivers <- st_coordinates(nc_rivers) %>% 
+df_rivers_strahler5 <- nc_rivers_strahler4 %>%
+  filter(STRAHLER >= 5) %>% 
+  st_coordinates %>%
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2) %>%
+  fix_river_errors(limit_meters = 2000)  # Fix errors (i.e. remove extremely long segments)
+
+df_rivers_strahler7 <- nc_rivers_strahler4 %>%
+  filter(STRAHLER >= 7) %>% 
+  st_coordinates %>%
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2) %>%
+  fix_river_errors(limit_meters = 2000) # Fix errors (i.e. remove extremely long segments)
+
+
+north_limit <- 7240000    # number found using ggplotly
+
+# Remove data for North Norway (filter doesn't work, as some data are reshuffeled)
+sel <- !is.na(df_rivers_strahler5$y) & df_rivers_strahler5$y > north_limit  
+df_rivers_strahler5[sel, c("x","y")] <- NA
+
+sel <- !is.na(df_rivers_strahler7$y) & df_rivers_strahler7$y > north_limit
+df_rivers_strahler7[sel, c("x","y")] <- NA
+
+rivercol <- "lightskyblue"
+
+if (FALSE){
+  # Test plot
+  ggplot() +
+    geom_path(data = df_rivers_strahler7, aes(x, y, group = group), col = "red") 
+}
+
+```
+
+
+### f. Lakes  
+
+Get coordinates (in zone 32)   
+```{r}
+
+nc_lakes <- st_read("K:/Kart/N1000/VANN.shp")
+st_crs(nc_lakes) <- "+proj=utm +zone=33"  # set coordinate system
+
+# Extract coordinates and Transform from UTM33 to UTM32
+df_lakes <- st_coordinates(nc_lakes) %>% 
   as.data.frame() %>%
   add_transformed_coord(
     name_x = "X", name_y = "Y", 
@@ -225,13 +281,10 @@ df_rivers <- st_coordinates(nc_rivers) %>%
   select(-X, -Y) %>%
   rename(group = L2)
 
-df_rivers <- fix_river_errors(df_rivers) %>% 
-  filter(y < 7240000)    # Not Nord-Norge. Use plotly (above) to set limit
-
-rivercol <- "lightskyblue"
+# Mjøsa only 
+df_lakes_mjosa <- df_lakes %>% filter(group == 3462)
 
 ```
-
 
 
 
@@ -294,7 +347,7 @@ leaf1 <- leaflet(df_stations) %>%
 
 leaf2 <- leaf1  
 for (box in boxlist)
-  leaf2 <- leaf2 %>% addRectangles2(list = box, fillColor = "transparent")
+  leaf2 <- leaf2 %>% addRectangles2(list = box, fillColor = "transparent", color = "red")
 
 leaf2
 
@@ -409,7 +462,15 @@ gg1 <- gg_back +
   geom_point(
     data = df_stations, 
     aes(label = Shortname, shape = Stasjonstype)) +
-  theme(legend.position = "none") +
+  theme(  legend.position = c(.95, .95),
+          legend.justification = c("right", "top"),
+          legend.box.just = "right",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
   geom_label_repel(
     data = df_stations_outside, 
     aes(label = Shortname, shape = Stasjonstype), color = "blue3", label.padding = 0.15)
@@ -456,14 +517,15 @@ get_y <- function(name, data = df_stations)
 ggdata <- layer_data(gg_back)
 
 gg2 <- gg_back +
-  geom_path(data = df_rivers %>% filter(y < 7240000), 
+  geom_path(data = df_rivers_strahler7, 
             aes(group = group), col = rivercol) +
+  geom_polygon(data = df_lakes_mjosa, 
+               aes(group = group), col = rivercol, fill = rivercol) +
   geom_point(
     data = df_stations,
     aes(label = Shortname, shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
   scale_fill_brewer(palette = "Set1") +
   scale_shape_manual(values = c(21,22,24)) +
-  theme(legend.position = "none") +
   geom_text_right(
     aes(label = Shortname), 
     data = df_stations %>% filter(Shortname %in% group1), 
@@ -522,7 +584,7 @@ gg2
 
 
 
-### b. Map with inset boxes    
+### b. Map with inset boxes  (gg3a)   
 ```{r, fig.width=8, fig.height=10}
 
 #
@@ -539,13 +601,17 @@ box_letter_pos$letter <- LETTERS[as.numeric(box_letter_pos$boxnumber)]
 #
 # Add boxes and letters
 #
-gg3 <- gg2 +
+gg3a <- gg2 +
   geom_polygon(data = box_polygons, aes(group = boxnumber),
                fill = NA, colour = "red3", size = rel(1.5)) +
   geom_text(data = box_letter_pos, aes(label = letter), 
             size = rel(8), colour = "red3", hjust = 0, vjust = 1) 
 
-# gg3
+# gg3a
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_test2.png", gg3a, width = 8, height = 12)
+
 
 ```
 
@@ -561,9 +627,13 @@ point_inside <- function(df, xrange, yrange)
   df$x > xrange[1] & df$x < xrange[2] & df$y > yrange[1] & df$y < yrange[2] 
 
 # Function making basic plot without labels
-# Global: gg_back, data_box, box_corners
+# Global: gg_back, df_rivers_strahler5, data_box, box_corners
 make_subplot_nolabels <- function(i){
   gg_back +
+    geom_path(data = df_rivers_strahler5, 
+              aes(group = group), col = rivercol) +
+    geom_polygon(data = df_lakes, 
+               aes(group = group), col = rivercol, fill = rivercol) +
     geom_point(
       data = data_box[[i]], 
       aes(shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
@@ -612,10 +682,18 @@ data_box <- vector("list", length(boxlist))
 
 ```
 
+Show each inset in markdown document?  
+```{r}
+show_insets <- FALSE
+```
+
+
 ### Inset 1
 ```{r, fig.width = 5, fig.height = 5}
 
 i <- 1
+
+# df_rivers_strahler5 <- fix_river_errors(df_rivers_strahler5, limit_meters = 3000)
 
 data_box[[i]] <- df_stations %>%
   filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
@@ -651,8 +729,9 @@ gg_box[[i]] <- gg_box[[i]] +
     xdist = 4E3, same_x = FALSE, xadj_start = 900, 
     y_even_dist = 0, y_even_pos = 3E3,
     color = "blue3", segment.color = "blue3")
-  
-gg_box[[i]] 
+
+if (show_insets)
+  gg_box[[i]] 
 
 ```
 
@@ -677,7 +756,8 @@ gg_box[[i]] <- gg_box[[i]] +
       aes(label = Shortname), color = "blue3", 
       label.padding = 0.15, point.padding = 1)
 
-gg_box[[i]]
+if (show_insets)
+  gg_box[[i]]
 
 
 ```
@@ -701,6 +781,8 @@ if (FALSE){
 data_box[[i]] <- data_box[[i]] %>%
   mutate(group = case_when(
     substr(Shortname,1,2) %in% c("19") ~ "left",
+    substr(Shortname,1,2) %in% c("21") ~ "right up",
+    substr(Shortname,1,2) %in% c("25") ~ "left up",
     TRUE ~ "right"))
 
 # Add labels  
@@ -714,9 +796,21 @@ gg_box[[i]] <- gg_box[[i]] +
     aes(label = Shortname), 
     data = data_box[[i]] %>% filter(group == "left"),
     xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "right up"),
+    xdist = 0.1E3, same_x = FALSE, xadj_start = 900, y_pos = 4E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = data_box[[i]] %>% filter(group == "left up"),
+    xdist = 0.1E3, same_x = FALSE, xadj_start = 900, y_pos = 4E3,  
     color = "blue3", segment.color = "blue3")
+
   
-gg_box[[i]] 
+if (show_insets)
+  gg_box[[i]] 
 
 ```
 
@@ -760,7 +854,8 @@ gg_box[[i]] <- gg_box[[i]] +
     y_even_dist = 0, y_even_pos = -3E3,
     color = "blue3", segment.color = "blue3")
   
-gg_box[[i]] 
+if (show_insets)
+  gg_box[[i]] 
 
 ```
 
@@ -799,7 +894,8 @@ gg_box[[i]] <- gg_box[[i]] +
     xdist = 2E3, same_x = FALSE, xadj_start = 400,  
     color = "blue3", segment.color = "blue3")
 
-gg_box[[i]] 
+if (show_insets)
+  gg_box[[i]] 
 
 
 ```
@@ -812,7 +908,7 @@ gg_box[[i]]
 
 if (FALSE){
   gg4 <- ggdraw() +
-    draw_plot(gg3, x = 0.15, y = 0, scale = 0.7) +
+    draw_plot(gg3a, x = 0.15, y = 0, scale = 0.7) +
     draw_plot(gg_box[[2]], x = 0.37, y = 0.6, width = 0.3, height = 0.3) +
     draw_plot(gg_box[[2]], x = 0.07, y = 0.6, width = 0.3, height = 0.3) +
     draw_plot(gg_box[[2]], x = 0.07, y = 0.4, width = 0.3, height = 0.3) +
@@ -825,6 +921,7 @@ if (FALSE){
 }
 
 ```
+
 
 ### Real plot
 ```{r}
@@ -845,18 +942,27 @@ box_pos <- tibble::tribble(
 box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
 box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
 
+# if (TRUE){
+gg3b <- gg3a +
+  theme(  legend.position = "none")
+
+# }
+
 gg4 <- ggdraw() +
-  draw_plot(gg3, x = 0.15, y = 0, scale = 0.7)
+  draw_plot(gg3b, x = 0.15, y = 0, scale = 0.7)
 for (i in 1:5){
   gg4 <- gg4 + draw_plot(
     gg_box[[i]], 
     x = box_pos$x[i], y = box_pos$y[i], 
     width = box_dim$x_scale[i], height = box_dim$y_scale[i]
     )
-  }
+}
+
+# gg5 <- gg4 + draw_plot(gg_legend, x = 0.15, y = 0.5, scale = 0.7)
+
 
 if (save_plots){
-  fn <- glue("{folder_fig}/07b_labelmap_complete.png")
+  fn <- glue("{folder_fig}/07b_labelmap_nolegend.png")
   scale <- 1.5
   ggsave(fn, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
 }
@@ -864,10 +970,36 @@ if (save_plots){
 ```
 
 
+### Make legend
+```{r, fig.width = 9,fig.height = 6}
+
+gg3_for_legend <- gg3a +
+  theme(  legend.position = c(.1, .5),
+          legend.justification = c("left", "bottom"),
+          legend.box.just = "right",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  )
+
+gg_legend <- get_legend(gg3_for_legend)
+
+  grid.newpage()
+  grid.draw(gg_legend)
+
+if (FALSE){
+  fn <- glue("{folder_fig}/07b_labelmap_legend.png")
+  png(fn, width = 7, height = 5, res = 400)
+  dev.off()
+}
+
+```
+
 
 ## APPENDIX 1. Rivers   
 
-### Read file  
 ```{r}
 
 if (FALSE){
@@ -919,22 +1051,32 @@ if (FALSE){
 
 ## APPENDIX 2. Lakes   
 
-### Read file  
+
+
+
+
+### Get data  
 ```{r}
 
 if (FALSE){
 
   nc_lakes <- st_read("K:/Kart/N1000/VANN.shp")
   st_crs(nc_lakes) <- "+proj=utm +zone=33"  # set coordinate system
-  nc_lakes %>%
-    arrange(desc(AREA)) 
   
-  # Select large rivers
-  nc_lakes_sel <- nc_lakes %>%
-    filter(AREA >= 97.9E6)
-  
+  # Plot without background, using geom_sf
+  ggplot() +
+    geom_sf(data = nc_lakes)
+    
+}
+
+```
+
+### Get coordinates (in zone 32)  
+```{r}
+if (FALSE){
+    
   # Extract coordinates and Transform from UTM33 to UTM32
-  df_lakes_sel <- st_coordinates(nc_lakes_sel) %>% 
+  df_lakes <- st_coordinates(nc_lakes) %>% 
     as.data.frame() %>%
     add_transformed_coord(
       name_x = "X", name_y = "Y", 
@@ -944,20 +1086,38 @@ if (FALSE){
     select(-X, -Y) %>%
     rename(group = L2)
 
-  gg_back +
-    geom_path(data = df_lakes_sel, aes(group = group), col = "red") 
 
-  
-  #
-  # Alternative, one cn use plotly
-  #
-  gg <- ggplot() +
-    geom_path(data = df_lakes_sel, aes(x, y, group = group), col = "red")   
-  plotly::ggplotly(gg)
+  gg_back +
+    geom_polygon(data = df_lakes, aes(group = group), col = "red", fill = "blue3") 
   
 }
 
+```
 
+### Get Mjøsa only  
+```{r}
+
+# Use plotly to find group for Mjøsa   
+if (FALSE){
+
+  gg <- ggplot(data = df_lakes, aes(x, y, group = group, text = group)) +
+    geom_path(col = "red") +
+    coord_fixed(xlim = c(570936, 625000), ylim = c(6676542, 6798102))
+  plotly::ggplotly(gg, tooltip = "text")
+
+  }
+
+if (FALSE){
+
+  # Mjøsa = group 3462, see code above 
+  gg_back +
+    geom_polygon(data = df_lakes %>% filter(group == 3462), 
+                 aes(group = group), col = "red", fill = "blue3") +
+    coord_fixed(xlim = c(570936, 625000), ylim = c(6676542, 6798102))
+
+}
+
+  
 ```
 
 
