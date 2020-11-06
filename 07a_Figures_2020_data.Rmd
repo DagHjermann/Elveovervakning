@@ -17,8 +17,11 @@ Plots for report 2020 (*data* from 2019!)
 
 ### a1. Libs + map  
 ```{r}
+
 library(dplyr)       # filter, group_by, summary, etc.
 library(readxl)
+source("07_Figures_functions.R")
+
 
 ```
 
@@ -115,6 +118,57 @@ df_index_barplot <- df_index %>%
 
 ```
 
+### d. Add class value to bar plots  
+```{r}
+
+
+# names(df_index_barplot) %>% dput()
+
+for (var in c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")){
+  x1 <- df_index_barplot[[var]]
+  x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
+  x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+  
+  # Make variable 'Class'
+  df_index_barplot$Class <- factor(x3, levels = c("Svært god", "God", "Moderat", 
+                                                "Dårlig", "Svært dårlig", "Uklassifisert"))
+  
+  # Change name of variable 'Class'
+  df_index_barplot <- rename2(
+    df = df_index_barplot, 
+    oldname = "Class",
+    newname = paste0(var, "_klasse")
+    )
+
+}
+
+# Tabulate the result
+df_index_barplot %>%
+  # First, put the data on long format
+  select(Rapportnavn, nEQR_eutrofi_klasse, nEQR_forsuring_klasse, nEQR_ecol_klasse) %>%
+  tidyr::pivot_longer(
+    cols = -Rapportnavn,
+    names_to = "Type", values_to = "Class") %>%
+  # Then make table  
+  xtabs(~Type + Class, .)
+      
+
+```
+
+### e. Change index value for one salt water station  
+```{r}
+
+sel <- grepl("STR1", df_index_barplot$Rapportnavn)
+cat(sum(sel), "station chosen \n")
+
+df_index_barplot$nEQR_eutrofi_klasse[sel] <- "Uklassifisert"
+df_index_barplot$nEQR_forsuring_klasse[sel] <- "Uklassifisert"
+df_index_barplot$nEQR_ecol_klasse[sel] <- "Uklassifisert"
+
+cat("Class set to NA for station",  sQuote(df_index_barplot$Rapportnavn[sel]), "  \n")
+
+
+```
 
 Stations  
 ```{r}

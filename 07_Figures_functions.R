@@ -1,10 +1,33 @@
 
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# Utility functions ----
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
 
 # Function for supplying file name to ggsave using a "glue-able" file name
 #   Example (see part 6): 
 #   ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".png"), gg)
 ggsave2 <- function(txt, ...)
   ggsave(filename = glue(txt), ...)
+
+#
+# Function for renaming variables
+# Suitable also in functions and for tibbles
+#
+
+rename2 <- function(df, oldname, newname){
+  names(df)[names(df) %in% oldname] <- newname
+  df
+}
+
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# Utility functions, mapping ----
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
 
 #
 # leaflet function for supplying long + lat to leaflet::addRectangles using a list
@@ -59,6 +82,8 @@ crs_string <- function(projection, zone = NA){
 # test
 # crs_string("longlat")
 # crs_string("utm", 32)
+
+
 
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -316,5 +341,49 @@ make_pie_from_colours <- function(cols){
     geom_bar(stat="identity", color = "black", size = 1) + coord_polar(theta="y") +
     scale_fill_manual(values = cols) +
     theme_void() + theme(legend.position="none") + theme_transparent()
+}
+
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# BArplot function ----
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
+
+#
+# Make horizontal barplot for data_index (column names: varname_index, varname_navn) on level Vannforekomst
+#
+make_barplot_index <- function(data_index, varname_index, 
+                               scale_label, 
+                               varname_navn = "Vannforekomst, kortnavn"){
+  
+  data_index <- rename2(data_index, oldname = varname_navn,  newname = "Rapportnavn")
+  data_index <- rename2(data_index, oldname = varname_index, newname = "Indeksverdi")
+  data_index <- as.data.frame(data_index)
+  
+  data_index$Tilstandsklasse <- data_index[[paste0(varname_index, "_klasse")]]
+
+  # Get Rapportnavn 01 on top
+  data_index$Rapportnavn <- factor(data_index$Rapportnavn, levels = rev(data_index$Rapportnavn))
+  
+  # Plot
+  gg <- ggplot(data_index, aes(Rapportnavn, Indeksverdi, fill = Tilstandsklasse)) + 
+    # geom_hline(yintercept = seq(0, 1, 0.2), size = rel(0.5), linetype = 2) +
+    geom_hline(yintercept = 0.6, size = rel(1), linetype = 1) +
+    geom_col(width = 0.75) +
+    scale_fill_manual("Tilstandsklasse", values = class_colors, drop = FALSE) +
+    scale_y_continuous(minor_breaks = seq(0, 1, 1), breaks = seq(0, 1, 0.2), 
+                       limits = c(0,1.06), expand = c(0,0)) +         # limits + expand: no space on left side + a little space on right side 
+    coord_flip() + 
+    theme(axis.text.y = element_text(hjust = 0)) +
+    theme(legend.position = "bottom") +
+    labs(x = "", y = scale_label) +
+    theme_bw() +
+    theme(axis.text = element_text(color = "black"),
+          panel.grid.major.x = element_line(color = "black", linetype = 1),
+          panel.grid.major.y = element_line(color = "white"),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank())
+  gg
 }
 

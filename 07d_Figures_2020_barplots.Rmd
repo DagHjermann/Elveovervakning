@@ -12,7 +12,7 @@ output:
 #### Bar plots for nEQR quality   
 
 * Data are prepared in script 07a and 07b  
-* Plotting uses function `make_indexplot()` in script 04  
+* Plotting uses function `make_barplot_index()` in script 07..  
 
 ## 1. Prerequisites  
 
@@ -47,8 +47,7 @@ source("07_Figures_functions.R")
 crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
 crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
 
-source("04_Kvalitetselementer_søylediagram_functions.R", encoding = "UTF-8")
-
+source("07_Figures_functions.R")
 
 ```
 
@@ -110,7 +109,7 @@ label <- "Samlet eutrofieringstilstand (nEQR)"
 plotno <- "1a"
 # debugonce(make_indexplot)
 
-gg <- make_indexplot(df_index_barplot, "nEQR_eutrofi", label)
+gg <- make_barplot_index(df_index_barplot, "nEQR_eutrofi", label)
 if (save_plots){
   ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".png"), gg, 
          width = 8.5, height = 10.5, dpi = 500)
@@ -126,7 +125,7 @@ gg
 
 label <- "Samlet forsuringstilstand (nEQR)"
 plotno <- "1b"
-gg <- make_indexplot(df_index_barplot, "nEQR_forsuring", label)
+gg <- make_barplot_index(df_index_barplot, "nEQR_forsuring", label)
 if (save_plots){
   ggsave2("{folder_fig}/07_{plotno}_{label}.png", gg, 
          width = 8.5, height = 10.5, dpi = 500)
@@ -142,7 +141,7 @@ gg
 ```{r, fig.height=8.5}
 label <- "Samlet økologisk tilstand (nEQR)"
 plotno <- "1c"
-gg1 <- make_indexplot(df_index_barplot, "nEQR_ecol", label)
+gg1 <- make_barplot_index(df_index_barplot, "nEQR_ecol", label)
 gg2 <- gg1 + 
   # Add all-white label (to cover the vertical lines)
   # (this is a workaround, as 'colour' seems to control both text and border colour...)
