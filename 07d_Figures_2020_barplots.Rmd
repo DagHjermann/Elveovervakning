@@ -47,7 +47,7 @@ source("07_Figures_functions.R")
 crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
 crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
 
-source("04_Kvalitetselementer_søylediagram_functions.R")
+source("04_Kvalitetselementer_søylediagram_functions.R", encoding = "UTF-8")
 
 
 ```
