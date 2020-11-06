@@ -31,7 +31,7 @@ Code overview
 #
 #
 save_plots <- TRUE
-save_plots <- FALSE
+# save_plots <- FALSE
 
 
 #
@@ -124,6 +124,8 @@ names(class_colors) <- df_colors$Status_no
 
 # From script 7a
 df_index <- readRDS("Data/2020/07a_df_index_2019.rds")
+df_index_barplot <- readRDS("Data/2020/07a_df_index_barplot_2019.rds")
+
 
 # From script 7b, part 4c
 df_stations <- readRDS("Data/2020/07b_df_stations.rds")   # with UTM 32 coordinates
@@ -283,7 +285,11 @@ Also writes df_stations_vf to excel (later manipulated semi-manually and used in
 ```{r}
 
 # Start with location data on Vannforekomst-level
-df_pies <- df_stations
+df_pies <- df_stations %>%
+  left_join(df_index_barplot %>% select(Rapportnavn, nEQR_ecol_klasse),
+            by = c("Shortname" = "Rapportnavn")) %>%
+  rename(Class_ecol = nEQR_ecol_klasse)
+
 
 ```
 
@@ -291,23 +297,12 @@ df_pies <- df_stations
 ### b. Ecological class, levels and colors    
 ```{r}
 
+
 # df_colors$Status_no
 # class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
 
-df_pies$Index_ecol[1] - 0.6
 
 df_pies <- df_pies %>%
-  mutate(
-    Index_ecol = round(Index_ecol,4),     # 01 Glomma was "invisibly" (5E-16) above 0.6!  
-    Class_ecol = case_when(
-      is.na(Index_ecol) ~ "Uklassifisert",
-      Index_ecol <= 0.2 ~ "Svært dårlig", 
-      Index_ecol <= 0.4 ~ "Dårlig", 
-      Index_ecol <= 0.6 ~ "Moderat", 
-      Index_ecol <= 0.8 ~ "God", 
-      Index_ecol <= 1 ~ "Svært god"),
-    Class_ecol = factor(Class_ecol, levels = df_colors$Status_no)
-  ) %>%
   left_join(
     df_colors %>% select(Status_no, Class_color),
     by = c("Class_ecol" = "Status_no")
@@ -854,9 +849,12 @@ for (i in 1:5){
   }
 
 if (save_plots){
-  fn <- glue("{folder_fig}/07c_qualitymap_complete.png")
+  fn1 <- glue("{folder_fig}/07c_qualitymap_complete.png")
+  fn2 <- glue("{folder_fig}/07c_qualitymap_complete_hi.png")
+  # fn <- glue("{folder_fig}/07c_qualitymap_TEST.png")
   scale <- 1.5
-  ggsave(fn, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+  ggsave(fn1, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+  ggsave(fn2, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 1000/scale)  
 }
 
 ```
