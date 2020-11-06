@@ -23,9 +23,9 @@ make_indexplot <- function(data_index, varname_index,
   # Set Tilstandsklasse
   x1 <- data_index$Indeksverdi
   x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
-  x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
-  data_index$Tilstandsklasse <- factor(x3, levels = c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert"))
-  data_index$Tilstandsklasse <- droplevels(data_index$Tilstandsklasse)
+  x3 <- c("SvÃ¦rt god", "God", "Moderat", "DÃ¥rlig", "SvÃ¦rt dÃ¥rlig", "Uklassifisert")[x2]
+  data_index$Tilstandsklasse <- factor(x3, levels = c("SvÃ¦rt god", "God", "Moderat", "DÃ¥rlig", "SvÃ¦rt dÃ¥rlig", "Uklassifisert"))
+  # data_index$Tilstandsklasse <- droplevels(data_index$Tilstandsklasse)
   
   # Get Rapportnavn 01 on top
   data_index$Rapportnavn <- factor(data_index$Rapportnavn, levels = rev(data_index$Rapportnavn))
@@ -35,7 +35,7 @@ make_indexplot <- function(data_index, varname_index,
     # geom_hline(yintercept = seq(0, 1, 0.2), size = rel(0.5), linetype = 2) +
     geom_hline(yintercept = 0.6, size = rel(1), linetype = 1) +
     geom_col(width = 0.75) +
-    scale_fill_manual("Tilstandsklasse", values = class_colors) +
+    scale_fill_manual("Tilstandsklasse", values = class_colors, drop = FALSE) +
     scale_y_continuous(minor_breaks = seq(0, 1, 1), breaks = seq(0, 1, 0.2), 
                        limits = c(0,1.06), expand = c(0,0)) +         # limits + expand: no space on left side + a little space on right side 
     coord_flip() + 
@@ -70,10 +70,10 @@ make_indexplot_dots_givendata <- function(data_index, data_index_points,
   # Set Tilstandsklasse
   x1 <- data_index$Indeksverdi
   x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
-  x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+  x3 <- c("SvÃ¦rt god", "God", "Moderat", "DÃ¥rlig", "SvÃ¦rt dÃ¥rlig", "Uklassifisert")[x2]
   if (!is.null(varname_kalkrik))
     x3[data_index[[varname_kalkrik]] %in% "x"] <- "Uklassifisert"
-  data_index$Tilstandsklasse <- factor(x3, levels = c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert"))
+  data_index$Tilstandsklasse <- factor(x3, levels = c("SvÃ¦rt god", "God", "Moderat", "DÃ¥rlig", "SvÃ¦rt dÃ¥rlig", "Uklassifisert"))
   data_index$Tilstandsklasse <- droplevels(data_index$Tilstandsklasse)
   
   # Get Rapportnavn 01 on top

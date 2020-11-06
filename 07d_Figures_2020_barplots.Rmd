@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Barplot figures (2020)"
 author: "DHJ"
 date: "23 10 2020"
 output: 
@@ -9,17 +9,17 @@ output:
     
 ---
 
+#### Bar plots for nEQR quality   
 
-Overview maps (types of stations) for Methods chapter (section 3)  
-- using UTM 
-* "Lange tidsserier" ('long time-series' stations) are used for Methods map, not in Results  
+* Data are prepared in script 07a and 07b  
+* Plotting uses function `make_indexplot()` in script 04  
 
 ## 1. Prerequisites  
 
 ### a. Whether and where to save figures  
 ```{r}
 #
-# SAve figures to file, or just show them in this report?
+# Save figures to file, or just show them in this report?
 #
 #
 save_plots <- TRUE
@@ -103,7 +103,7 @@ df_index_barplot <- readRDS("Data/2020/07a_df_index_barplot_2019.rds")
 ```
 
 
-## 6. Bar plots
+## 3. Bar plots
 ### a. Eutrofiering
 ```{r, fig.height=7}
 label <- "Samlet eutrofieringstilstand (nEQR)"
