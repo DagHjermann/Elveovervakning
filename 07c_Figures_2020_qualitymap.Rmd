@@ -31,7 +31,7 @@ Code overview
 #
 #
 save_plots <- TRUE
-# save_plots <- FALSE
+save_plots <- FALSE
 
 
 #
@@ -316,7 +316,7 @@ df_pies <- df_pies %>%
 
 ggplot(df_pies, aes(Class_ecol, Index_ecol, fill = Class_ecol)) + 
   geom_point(shape = 21, size = 2) +
-  scale_fill_manual(values = class_colors) +
+  scale_fill_manual(values = class_colors, drop = FALSE) +
   theme(panel.background = element_rect(fill = "grey70"), panel.grid = element_blank())
 
 ```
