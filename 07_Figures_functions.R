@@ -68,9 +68,9 @@ crs_string <- function(projection, zone = NA){
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
 
-fix_river_errors <- function(data, limit_meters = 5000){
+fix_river_errors <- function(riverdata, limit_meters = 5000, print = FALSE){
   
-  check <- data %>%
+  check <- riverdata %>%
     group_by(group) %>%
     mutate(dx = x - lag(x), dy = y - lag(y),
            dist = sqrt((dx^2) + (dy^2)))
@@ -80,11 +80,14 @@ fix_river_errors <- function(data, limit_meters = 5000){
   
   # Delete last point befre the big jump
   if (length(i) > 0){
-    data$x[i-1] <- NA
-    data$y[i-1] <- NA
+    riverdata$x[i] <- NA
+    riverdata$y[i] <- NA
   }
   
-  data
+  if (print){
+    cat("Deleted data at line", paste(i, collapse = ", "), "\n")
+  }
+  riverdata
   
 }
 
@@ -298,7 +301,7 @@ make_pie <- function(measurements_present, col = colorscheme1, col_lacking = "gr
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 #
-# Make one pie from a vecor of colours
+# Make one pie from a vector of colours
 #
 # Pies start at top 12:00 and goes anti-clockwise
 #
