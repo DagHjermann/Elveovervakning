@@ -5,4 +5,5 @@
 *.html
 Figures/*
 Data/*
+!Data/2020
 *.html

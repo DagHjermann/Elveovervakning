@@ -1,0 +1,395 @@
+---
+title: "20_4stations_2021"
+author: "DHJ"
+date: "10 3 2021"
+output: 
+  html_document:
+    keep_md: true  
+    toc: true  
+    toc_float: true
+    
+---
+
+## 1. Libs  
+```{r, warning=FALSE}
+
+shh <- suppressPackageStartupMessages   # ask packages to please be silent when they load
+
+# Check if purrr is installed (we donæt load it because of namespace collision with maps)
+if (!"purrr" %in% installed.packages())
+  stop(
+    "Please install package 'purrr', for instance by running ",
+    dQuote("install.packages('purrr')")
+  )
+
+shh(library(OpenStreetMap))
+shh(library(maps))
+shh(library(ggplot2))
+shh(library(readxl))
+shh(library(dplyr))
+shh(library(sf))
+
+shh(library(jsonlite))  # for fromJSON(), used in get_riverlines
+
+shh(library(plotrix)) # for polygon.shadow() (and more?) 
+                                                 #   used in floating.pie()
+
+source("20_4stations_2021_functions.R", encoding = "UTF-8")
+
+# Not strictly necessary:
+shh(library(mapview))
+
+# CRS strongs for changing projection
+crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
+crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
+crs_utm33 <- "+proj=utm +zone=33 +ellps=WGS84 +datum=WGS84 +units=m"
+
+
+```
+### Define colours for classes  
+```{r, fig.width=3.5, fig.height=2.5}
+
+# Order in plots etc.
+class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
+
+# Read standard colors
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2) %>%
+  mutate(
+    Status_no = case_when(
+      Status %in% "High" ~ "Svært god",
+      Status %in% "Good" ~ "God",
+      Status %in% "Moderate" ~ "Moderat",
+      Status %in% "Poor" ~ "Dårlig",
+      Status %in% "Bad" ~ "Svært dårlig",
+      Status %in% "Unclassified" ~ "Uklassifisert"),
+    Status_kort = case_when(
+      Status %in% "High" ~ "SG",
+      Status %in% "Good" ~ "G",
+      Status %in% "Moderate" ~ "M",
+      Status %in% "Poor" ~ "D",
+      Status %in% "Bad" ~ "SD",
+      Status %in% "Unclassified" ~ "NA"),
+    Status_no = factor(Status_no, levels = class_levels),
+    Class_color = rgb(R/255, G/255, B/255)
+  ) %>%
+  arrange(Status_no)
+df_colors
+
+
+# Show colors
+par(mar = c(0,0,2,0))
+pie(rep(1,6), 
+    col = df_colors$Class_color, 
+    labels = df_colors$Status_no, 
+    main = "Colors for nEQr classes")  
+
+# Also make named list
+class_colors <- df_colors$Class_color
+names(class_colors) <- df_colors$Status_no
+
+```
+
+## 2. Data  
+```{r}
+
+fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2021/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx"
+# readxl::excel_sheets(fn)
+
+dat <- read_excel(fn, sheet = "Til Dag ") %>%
+  mutate(Lat = as.numeric(Lat),
+         Long = as.numeric(Long))
+
+n1 <- nrow(dat)
+
+```
+
+### Add colors to data     
+One color column for each of the columns Påvekstalger, HBI, Bunndyr
+```{r}
+
+dat <- dat %>%
+  left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(Påvekst_col = Class_color),
+            by = c("Påvekstalger" = "Status_kort")) %>%
+  left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(HBI_col = Class_color),
+            by = c("HBI" = "Status_kort")) %>%
+  left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(Bunndyr_col = Class_color),
+            by = c("Bunndyr" = "Status_kort"))
+
+n2 <- nrow(dat)
+
+if (n1 != n2)
+  stop("Error! number of lines changed!")
+
+```
+
+
+### Interactive map   
+* Only for info  
+```{r}
+
+# For easxy plotting in mapvio 
+# For easxy plotting in mapvio 
+datsf_longlat <- sf::st_as_sf(
+  dat,
+  coords = c("Long", "Lat"), 
+  crs = crs_longlat, 
+  agr = "constant")  
+
+# Transform to UTM
+datsf <- st_transform(datsf_longlat, crs_utm)  
+
+# Transform to Web mercator
+datsf_wm <- st_transform(datsf_longlat, 3857)  
+
+mapview(datsf_longlat, zcol = "Elv")
+
+```
+
+
+
+## 3. Openstreetmap {.tabset}
+
+
+### Moelva  
+
+```{r, warning = FALSE}
+
+plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "right"),
+            id_distance = 250, 
+            data = dat,
+            maptype = "osm")
+```
+
+### Brumunda    
+
+```{r, warning = FALSE}
+plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
+            id_pos = c("right", "left", "right"),
+            id_distance = -500, 
+            data = dat,
+            maptype = "osm")
+
+```
+
+### Gausa    
+
+```{r, warning = FALSE}
+plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
+            id_pos = c("below", "below"),
+            id_distance = c(0, 200), 
+            data = dat,
+            maptype = "osm")
+
+```
+
+### Mesna    
+
+```{r, warning = FALSE}
+
+plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
+            id_pos = "above", 
+            id_distance = 700, 
+            data = dat,
+            maptype = "osm")
+```
+
+
+## 4. ESRI {.tabset}
+
+
+### Moelva  
+
+```{r, warning = FALSE}
+
+plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "right"),
+            id_distance = 250, 
+            data = dat,
+            maptype = "esri")
+```
+
+### Brumunda    
+
+```{r, warning = FALSE}
+plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
+            id_pos = c("right", "left", "right"),
+            id_distance = -500, 
+            data = dat,
+            maptype = "esri")
+
+```
+
+### Gausa    
+
+```{r, warning = FALSE}
+plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
+            id_pos = c("below", "below"),
+            id_distance = c(0, 200), 
+            data = dat,
+            maptype = "esri")
+
+```
+
+### Mesna    
+
+```{r, warning = FALSE}
+
+plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
+            id_pos = "above", 
+            id_distance = 700, 
+            data = dat,
+            maptype = "esri")
+```
+
+
+
+
+## 5. ESRI-topo {.tabset}
+
+
+
+### Moelva  
+
+```{r, warning = FALSE}
+
+plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "right"),
+            id_distance = 250, 
+            data = dat,
+            maptype = "esri-topo")
+```
+
+### Brumunda    
+
+```{r, warning = FALSE}
+plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
+            id_pos = c("right", "left", "right"),
+            id_distance = -500, 
+            data = dat,
+            maptype = "esri-topo")
+
+```
+
+### Gausa    
+
+```{r, warning = FALSE}
+plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
+            id_pos = c("below", "below"),
+            id_distance = c(0, 200), 
+            data = dat,
+            maptype = "esri-topo")
+
+```
+
+### Mesna    
+
+```{r, warning = FALSE}
+
+plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
+            id_pos = "above", 
+            id_distance =  = 700, 
+            data = dat,
+            maptype = "esri-topo")
+```
+
+
+
+
+## 6. apple-iphoto {.tabset}
+
+
+### Moelva  
+
+```{r, warning = FALSE}
+
+plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "right"),
+            id_distance = 250, 
+            data = dat,
+            maptype = "apple-iphoto")
+```
+
+### Brumunda    
+
+```{r, warning = FALSE}
+plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
+            id_pos = c("right", "left", "right"),
+            id_distance = -500, 
+            data = dat,
+            maptype = "apple-iphoto")
+
+```
+
+### Gausa    
+
+```{r, warning = FALSE}
+plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
+            id_pos = c("below", "below"),
+            id_distance = c(0, 200), 
+            data = dat,
+            maptype = "apple-iphoto")
+
+```
+
+### Mesna    
+
+```{r, warning = FALSE}
+
+plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
+            id_pos = "above", 
+            id_distance = 700, 
+            data = dat,
+            maptype = "apple-iphoto")
+```
+
+
+
+
+## 7. bing {.tabset}
+
+
+### Moelva  
+
+```{r, warning = FALSE}
+
+plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "right"),
+            id_distance = 250, 
+            data = dat,
+            maptype = "bing")
+```
+
+### Brumunda    
+
+```{r, warning = FALSE}
+plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
+            id_pos = c("right", "left", "right"),
+            id_distance = -500, 
+            data = dat,
+            maptype = "bing")
+
+```
+
+### Gausa    
+
+```{r, warning = FALSE}
+plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
+            id_pos = c("below", "below"),
+            id_distance = c(0, 200), 
+            data = dat,
+            maptype = "bing")
+
+```
+
+### Mesna    
+
+```{r, warning = FALSE}
+
+plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
+            id_pos = "above", 
+            id_distance = 700, 
+            data = dat,
+            maptype = "bing")
+```
+

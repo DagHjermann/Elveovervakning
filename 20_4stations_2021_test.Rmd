@@ -1,0 +1,395 @@
+---
+title: "20_4stations_2021"
+author: "DHJ"
+date: "10 3 2021"
+output: 
+  html_document:
+    keep_md: true  
+    toc: true  
+    toc_float: true
+---
+
+## 1. Libs  
+```{r}
+
+# install.packages("OpenStreetMap")
+suppressPackageStartupMessages (library(dplyr))
+suppressPackageStartupMessages (library(OpenStreetMap))
+suppressPackageStartupMessages (library(maps))
+suppressPackageStartupMessages (library(ggplot2))
+suppressPackageStartupMessages (library(readxl))
+suppressPackageStartupMessages (library(sf))
+
+suppressPackageStartupMessages(library(plotrix))  # for polygon.shadow() (and more?) 
+                  #   used in floating.pie()
+
+# Not strictly necessary:
+suppressPackageStartupMessages(library(mapview))
+
+# CRS strongs for changing projection
+crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
+crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
+crs_utm33 <- "+proj=utm +zone=33 +ellps=WGS84 +datum=WGS84 +units=m"
+
+
+```
+### Define colours for classes  
+```{r, fig.width=3.5, fig.height=2.5}
+
+# Order in plots etc.
+class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
+
+# Read standard colors
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2) %>%
+  mutate(
+    Status_no = case_when(
+      Status %in% "High" ~ "Svært god",
+      Status %in% "Good" ~ "God",
+      Status %in% "Moderate" ~ "Moderat",
+      Status %in% "Poor" ~ "Dårlig",
+      Status %in% "Bad" ~ "Svært dårlig",
+      Status %in% "Unclassified" ~ "Uklassifisert"),
+    Status_kort = case_when(
+      Status %in% "High" ~ "SG",
+      Status %in% "Good" ~ "G",
+      Status %in% "Moderate" ~ "M",
+      Status %in% "Poor" ~ "D",
+      Status %in% "Bad" ~ "SD",
+      Status %in% "Unclassified" ~ "NA"),
+    Status_no = factor(Status_no, levels = class_levels),
+    Class_color = rgb(R/255, G/255, B/255)
+  ) %>%
+  arrange(Status_no)
+df_colors
+
+
+# Show colors
+par(mar = c(0,0,2,0))
+pie(rep(1,6), 
+    col = df_colors$Class_color, 
+    labels = df_colors$Status_no, 
+    main = "Colors for nEQr classes")  
+
+# Also make named list
+class_colors <- df_colors$Class_color
+names(class_colors) <- df_colors$Status_no
+
+```
+
+## 2. Data  
+```{r}
+
+fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2021/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx"
+# readxl::excel_sheets(fn)
+
+dat <- read_excel(fn, sheet = "Til Dag ") %>%
+  mutate(Lat = as.numeric(Lat),
+         Long = as.numeric(Long))
+
+n1 <- nrow(dat)
+
+```
+
+### Add colors   
+One color column for each of the columns Påvekstalger, HBI, Bunndyr
+```{r}
+
+dat <- dat %>%
+  left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(Påvekst_col = Class_color),
+            by = c("Påvekstalger" = "Status_kort")) %>%
+  left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(HBI_col = Class_color),
+            by = c("HBI" = "Status_kort")) %>%
+  left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(Bunndyr_col = Class_color),
+            by = c("Bunndyr" = "Status_kort"))
+
+n2 <- nrow(dat)
+
+if (n1 != n2)
+  stop("Error! number of lines changed!")
+
+```
+
+
+### Change to spatial data (long-lat and UTM projections)    
+* Need to change to sf (or sp) object in order to transform data   
+* Also, sf data are easy to plot in mapvies (next chunk)  
+```{r}
+
+# For easxy plotting in mapvio 
+# For easxy plotting in mapvio 
+datsf_longlat <- sf::st_as_sf(
+  dat,
+  coords = c("Long", "Lat"), 
+  crs = crs_longlat, 
+  agr = "constant")  
+
+# Transform to UTM
+datsf <- st_transform(datsf_longlat, crs_utm)  
+
+# Transform to Web mercator
+datsf_wm <- st_transform(datsf_longlat, 3857)  
+
+```
+
+### Interactive map  
+```{r}
+
+mapview(datsf_longlat, zcol = "Elv")
+
+```
+
+## 3a. Test for one area, plot in UTM   
+### OpenStreetMap data   
+* The data from OpenStreetmap are in web mercator projection  
+```{r, results='hide', warning=FALSE, message=FALSE}
+
+river <- "Moelva"
+
+df <- dat %>%
+  filter(Elv == river)
+
+# Size of area, measured in dregrees long/lat  
+dlat <- 0.05
+dlon <- 0.10
+
+# p1 = upper 
+p1 <- c(mean(range(df$Lat)) + dlat/2, mean(range(df$Long)) - dlon/2)
+p2 <- c(mean(range(df$Lat)) - dlat/2, mean(range(df$Long)) + dlon/2)
+
+mp_webmerc <- openmap(p1, p2, type = 'osm')  
+plot(mp_webmerc)
+
+# Test function:
+# x <- get_map("Moelva", data = dat, dlon = 0.10, dlat = 0.05)
+# plot(x)
+
+```
+
+### Other map types  
+```{r}
+
+
+
+```
+
+### Check all plot types    
+```{r, warning = FALSE}
+
+maptypes <- c("osm", "osm-bw",
+              "maptoolkit-topo", "waze", "bing", "stamen-toner", "stamen-terrain",
+              "stamen-watercolor", "osm-german", "osm-wanderreitkarte", "mapbox", "esri",
+              "esri-topo", "nps", "apple-iphoto", "skobbler", "hillshade", "opencyclemap",
+              "osm-transport", "osm-public-transport", "osm-bbike", "osm-bbike-german")
+
+for (maptype in maptypes){
+  # maptype <- 'osm'
+  test <- try(openmap(p1, p2, type = maptype))
+  if (class(test) != "try-error"){
+    plot(test)
+    mtext(maptype)
+  }
+}
+
+```
+
+
+### Change to UTM and plot    
+* Note that the map is a bit 'tilted' due to the difference between UTM and Web mercator 
+```{r}
+
+mp <- openproj(mp_webmerc, projection = crs_utm)
+plot(mp)  
+
+```
+### Add pie using plotrix::floating.pie  
+
+* Original version of 'floating.pie' gave a kind of flattened pie   
+* Made new version of 'floating.pie' where aspect can be set by user   
+* Didnt find a good way to set aspect, we use aspect1 + "trial & error" factor (0.8)  
+```{r}
+
+
+river_data <- datsf %>%
+  filter(Elv == river)
+
+coord <- river_data %>% 
+  st_coordinates() %>%
+  as.data.frame()
+
+river_data <- bind_cols(river_data, coord)
+
+# Aspect from plot dimsnsions (used in the original version of floating.pie)
+aspect1 <- par("pin")[1]/par("pin")[2]
+# Aspect from bounding box of map 
+aspect2 <- (mp$bbox$p2[1] - mp$bbox$p1[1]) / (mp$bbox$p1[2] - mp$bbox$p2[2])
+
+# Plot map, plus points as test
+plot(mp)  
+points(river_data$X, river_data$Y, pch = 18, col = "red", cex = 2)
+
+# Plot pies (with just random data)
+# args(floating.pie)
+i <- 1   # the Southern one
+floating.pie(river_data$X[i], river_data$Y[i], c(2,4,4,2,8), radius=200,
+             col=c("#ff0000","#80ff00","#00ffff","#44bbff","#8000ff"))
+i <- 2
+floating.pie(river_data$X[i], river_data$Y[i], c(2,4,4,2,8), radius=200,
+             col=c("#ff0000","#80ff00","#00ffff","#44bbff","#8000ff"), aspect = aspect2)
+i <- 3   # the Northern one
+floating.pie(river_data$X[i], river_data$Y[i], c(2,4,4,2,8), radius=200,
+             col=c("#ff0000","#80ff00","#00ffff","#44bbff","#8000ff"), aspect = aspect1*0.8)  # set by trial and error  
+
+# ?plot.OpenStreetMap
+
+
+```
+### Plot actual pies     
+```{r}
+
+plot(mp)  
+
+# Plot pies (with just random data)
+# args(floating.pie)
+for (i in 1:3)
+  floating.pie(river_data$X[i], river_data$Y[i], c(1,1,1), radius=200,
+               col=c(river_data$Påvekst_col[i], 
+                     river_data$HBI_col[i], 
+                     river_data$Bunndyr_col[i]), 
+               aspect = aspect1*0.8)  # set by trial
+
+```
+
+## 3b. Test for one area, plot in Web mercator coordinates  
+
+
+```{r}
+
+plot(mp_webmerc)
+
+
+
+
+```
+
+### Add pie using plotrix::floating.pie    
+* Again, we get a flattened pie if we don't adjust aspect  
+* But the map isn't tilted, at least  
+* Choose this way  
+```{r}
+
+# As in 3a, but use datsf_wm instead of datsf
+river_data <- datsf_wm %>%
+  filter(Elv == river)
+
+coord <- river_data %>% 
+  st_coordinates() %>%
+  as.data.frame()
+
+river_data <- bind_cols(river_data, coord)
+
+# Plot map, plus points as test
+# As in 3a, but use mp_webmerc
+plot(mp_webmerc)  
+points(river_data$X, river_data$Y, pch = 18, col = "red", cex = 2)
+
+# Aspect from plot dimsnsions (used in the original version of floating.pie)
+aspect1 <- par("pin")[1]/par("pin")[2]
+# Aspect from bounding box of map 
+aspect2 <- (mp$bbox$p2[1] - mp$bbox$p1[1]) / (mp$bbox$p1[2] - mp$bbox$p2[2])
+
+# Plot pies (with just random data)
+# args(floating.pie)
+i <- 1   # the Southern one
+floating.pie(river_data$X[i], river_data$Y[i], c(2,4,4,2,8), radius=400,
+             col=c("#ff0000","#80ff00","#00ffff","#44bbff","#8000ff"))
+i <- 2
+floating.pie(river_data$X[i], river_data$Y[i], c(2,4,4,2,8), radius=400,
+             col=c("#ff0000","#80ff00","#00ffff","#44bbff","#8000ff"), aspect = aspect2)
+i <- 3   # the Northern one
+floating.pie(river_data$X[i], river_data$Y[i], c(2,4,4,2,8), radius=400,
+             col=c("#ff0000","#80ff00","#00ffff","#44bbff","#8000ff"), aspect = aspect1*0.8)
+# set by trial and error  
+
+# ?plot.OpenStreetMap
+
+
+```
+
+```{r}
+
+plot(mp_webmerc)  
+vannfor_ids <- unique(river_data$`Vannforekomst ID`)
+j <- 3
+vannfor_list <- get_riverdata(vannfor_ids[j])
+# debugonce(get_riverlines_wm)
+river_coord_all <- get_riverlines_wm(vannfor_list)
+river_coord_list <- river_coord_all %>% split(.$ID)
+for (river_coord in river_coord_list)
+  lines(river_coord[,"X"], river_coord[,"Y"], col = "red", lwd = 5)
+
+# View(river_coord_list[[1]])
+
+```
+
+
+
+## 4. Plot river + text for each Vannforekomst    
+
+### Test for maing function 
+```{r}
+
+plot(mp_webmerc)  
+vannfor_ids <- unique(river_data$`Vannforekomst ID`)
+river_coord <- river_coord_list[[1]]
+
+for (j in seq_along(vannfor_ids)){
+  
+  # j <- 2
+  
+  vannfor_list <- get_riverdata(vannfor_ids[j])
+  # debugonce(get_riverlines_wm)
+  river_coord_all <- get_riverlines_wm(vannfor_list)
+  
+  # Split 'river_coord_all' into a list of data frames (one per segment)
+  river_coord_list <- river_coord_all %>% split(.$ID)
+  
+  # Plot river, segment by segment
+  for (river_coord in river_coord_list)
+    lines(river_coord[,"X"], river_coord[,"Y"], col = "blue", lwd = 4)
+  
+  # Get positions for text
+  text_coord <- get_textpos_webmerc(river_coord_all, "right", 300)
+  
+  # PLot text - here: right of river
+  text(text_coord$X, text_coord$Y, vannfor_ids[j], adj = text_coord$adj)
+  
+}
+
+
+```
+
+
+### Test of function
+```{r}
+
+plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "right"),
+            id_distance = 250, 
+            data = dat)
+
+plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
+            id_pos = c("right", "left", "right"),
+            id_distance = -500, 
+            data = dat)
+
+plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
+            id_pos = c("below", "below"),
+            id_distance = c(0, 200), 
+            data = dat)
+
+plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
+            id_pos = "above", 
+            id_distance = 700, 
+            data = dat)
+```
+
