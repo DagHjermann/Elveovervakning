@@ -280,9 +280,12 @@ get_textpos_webmerc <- function(river_coord,
   
   # text_distance is given by 1 number (the usual) but also 
   #   2 numbers (where the second number is the distance in the other direction)
-  if (length(text_distance) == 1){
-    text_distance <- c(text_distance, 0)
-  }
+  # EDIT: this doesn't make sense as in the main script, text_distance is given as a vector, not a list
+  # - it was a good idea and it's not so hard to chang, but I dont bother now
+  
+  #if (length(text_distance) == 1){      
+  text_distance <- c(text_distance, 0)
+  #}
   
   box <- list(
     p1 = list(X = min(river_coord[,"X"]), Y = min(river_coord[,"Y"])),  # lower left
