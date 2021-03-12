@@ -333,7 +333,7 @@ if (FALSE){
 
 plot_river2 <- function(river, dlon, dlat, radius = 200, 
                         aspect_adjustment = 0.8, 
-                        river_col = "blue", river_lwd = 3,
+                        river_col = "status", river_lwd = 3,
                         id_pos = "right", id_distance = 300, id_size = 0.8,
                         data, 
                         maptype = 'osm'){
@@ -379,9 +379,20 @@ plot_river2 <- function(river, dlon, dlat, radius = 200,
     # Split 'river_coord_all' into a list of data frames (one per segment)
     river_coord_list <- river_coord_all %>% split(.$ID)
     
+    # river_col <- "blue"
+    # River color
+    if (tolower(river_col) == "status"){
+      river_col2 <- riverdata %>%
+        filter(`Vannforekomst ID` %in% vannfor_ids[j]) %>%
+        pull(Combined_col)
+      river_col2 <- river_col2[1]
+    } else {
+      river_col2 <- river_col
+    }
+    
     # Plot river, segment by segment
     for (river_coord in river_coord_list)
-      lines(river_coord[,"X"], river_coord[,"Y"], col = river_col, lwd = river_lwd)
+      lines(river_coord[,"X"], river_coord[,"Y"], col = river_col2, lwd = river_lwd)
     
     # Get positions for text
     text_coord <- get_textpos_webmerc(river_coord_all, 
@@ -393,16 +404,16 @@ plot_river2 <- function(river, dlon, dlat, radius = 200,
     
     # Aspect from plot dimensions (used in the original version of floating.pie)
     aspect1 <- par("pin")[1]/par("pin")[2]
-    
-    # Plot pies   
-    for (i in 1:nrow(riverdata))
-      floating.pie(riverdata$X[i], riverdata$Y[i], c(1,1,1), radius = radius,
-                   col=c(riverdata$Påvekst_col[i], 
-                         riverdata$HBI_col[i], 
-                         riverdata$Bunndyr_col[i]), 
-                   aspect = aspect1*0.8)  # set by trial
-    
   }
+  
+  # For each station - plot pies   
+  for (i in 1:nrow(riverdata))
+    floating.pie(riverdata$X[i], riverdata$Y[i], c(1,1,1), radius = radius,
+                 col=c(riverdata$Påvekst_col[i], 
+                       riverdata$HBI_col[i], 
+                       riverdata$Bunndyr_col[i]), 
+                 aspect = aspect1*0.8)  # set by trial
+  
   
   invisible(NULL)
   

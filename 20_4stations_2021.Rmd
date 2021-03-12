@@ -46,7 +46,19 @@ crs_utm33 <- "+proj=utm +zone=33 +ellps=WGS84 +datum=WGS84 +units=m"
 
 
 ```
+
+
+### Save figures
+```{r}
+
+save_figures <- TRUE
+
+```
+
+
 ### Define colours for classes  
+
+
 ```{r, fig.width=3.5, fig.height=2.5}
 
 # Order in plots etc.
@@ -103,8 +115,10 @@ n1 <- nrow(dat)
 
 ```
 
+
 ### Add colors to data     
 One color column for each of the columns Påvekstalger, HBI, Bunndyr
+
 ```{r}
 
 dat <- dat %>%
@@ -113,7 +127,9 @@ dat <- dat %>%
   left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(HBI_col = Class_color),
             by = c("HBI" = "Status_kort")) %>%
   left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(Bunndyr_col = Class_color),
-            by = c("Bunndyr" = "Status_kort"))
+            by = c("Bunndyr" = "Status_kort")) %>%
+  left_join(df_colors %>% select(Status_kort, Class_color) %>% rename(Combined_col = Class_color),
+            by = c("Samlet" = "Status_kort"))  
 
 n2 <- nrow(dat)
 
@@ -154,16 +170,49 @@ mapview(datsf_longlat, zcol = "Elv")
 
 ```{r, warning = FALSE}
 
-plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
-            id_pos = c("left", "right", "right"),
-            id_distance = 250, 
+if (save_figures){
+  
+  png("Figures/2021/20_4stations_2021_Moelva.png", 
+      width = 5, height = 5, units = "in", res = 400)
+  plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "left"),
+            id_distance = c(250, 250, -500), 
             data = dat,
             maptype = "osm")
+  dev.off()
+
+  
+}
+
+plot_river2("Moelva", dlon = 0.10, dlat = 0.05, radius = 300, 
+            id_pos = c("left", "right", "left"),
+            id_distance = c(250, 250, -500), 
+            data = dat,
+            maptype = "osm")
+
 ```
 
 ### Brumunda    
 
 ```{r, warning = FALSE}
+
+if (save_figures){
+  
+  png("Figures/2021/20_4stations_2021_Brumunda.png", 
+      width = 5, height = 5, units = "in", res = 400)
+
+  plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
+            id_pos = c("right", "left", "right"),
+            id_distance = c(-500, -500, -1000), 
+            data = dat,
+            maptype = "osm")
+
+  dev.off()
+
+  
+}
+
+
 plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800, 
             id_pos = c("right", "left", "right"),
             id_distance = -500, 
@@ -175,6 +224,24 @@ plot_river2("Brumunda", dlon = 0.30, dlat = 0.15, radius = 800,
 ### Gausa    
 
 ```{r, warning = FALSE}
+
+
+if (save_figures){
+  
+  png("Figures/2021/20_4stations_2021_Gausa.png", 
+      width = 5, height = 5, units = "in", res = 400)
+  
+  plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
+              id_pos = c("below", "below"),
+              id_distance = c(0, 200), 
+              data = dat,
+              maptype = "osm")
+  
+  dev.off()
+
+  
+}
+
 plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900, 
             id_pos = c("below", "below"),
             id_distance = c(0, 200), 
@@ -187,11 +254,27 @@ plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900,
 
 ```{r, warning = FALSE}
 
+if (save_figures){
+  
+  png("Figures/2021/20_4stations_2021_Mesna.png", 
+      width = 5, height = 5, units = "in", res = 400)
+  
+  plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
+              id_pos = "above", 
+              id_distance = 700, 
+              data = dat,
+              maptype = "osm")
+  
+  dev.off()
+  
+}
+
 plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
             id_pos = "above", 
             id_distance = 700, 
             data = dat,
             maptype = "osm")
+
 ```
 
 
@@ -288,9 +371,10 @@ plot_river2("Gausa", dlon = 0.30, dlat = 0.15, radius = 900,
 
 plot_river2("Mesna", dlon = 0.10, dlat = 0.05, radius = 350,
             id_pos = "above", 
-            id_distance =  = 700, 
+            id_distance = 700,
             data = dat,
             maptype = "esri-topo")
+
 ```
 
 
