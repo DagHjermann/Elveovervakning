@@ -155,7 +155,7 @@ df_index_barplot %>%
 
 ```
 
-### e. Change index value for one salt water station  
+### e. Change index value for one salt water influenced station  
 ```{r}
 
 sel <- grepl("STR1", df_index_barplot$Rapportnavn)

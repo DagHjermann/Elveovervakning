@@ -13,6 +13,7 @@ pos_text(df)$data_label    # positioning of text label
 pos_text(df)$data_segment  # positioning of line segment from point to label
 
 # position labels 2 units to the left (x direction) - xend changes
+pos_text(df, xdist = 2)$data_label    # positioning of text label
 pos_text(df, xdist = 2)$data_segment
 
 # as above, but also put the labels 1 unit apart in the y direction 
@@ -29,6 +30,12 @@ pos_text(df, xdist = 2, y_pos = 3)$data_segment
 
 # put them on the right side instead (xend changes)
 pos_text(df, xdist = 2, y_even_dist = 2, y_even_pos = 5, side = "right")$data_segment
+
+# position labels 2 units above (y direction) - xend changes
+# debugonce(pos_text)
+pos_text(df, xdist = 0)$data_label    # positioning of text label
+pos_text(df, xdist = 0)$data_segment
+
 
 x <- pos_text(df, xdist = 2, y_even_dist = 1, y_even_pos = 5, side = "right")$data_segment
 x
