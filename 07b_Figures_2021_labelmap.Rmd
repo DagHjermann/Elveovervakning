@@ -353,6 +353,18 @@ leaf2
 
 ```
 
+### d. TEST BOX
+```{r}
+leaf1 %>% addRectangles2(list = make_box_center(c(8.8, 60)), 
+                         fillColor = "transparent", color = "red")
+```
+
+
+## .
+## .
+## . GOTTEN HERE
+## .
+## .
 
 
 ## 4. Prepare datasets with UTM coordinates  
