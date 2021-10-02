@@ -8,7 +8,7 @@ output:
 
 ---
 
-Plots for report 2020 (*data* from 2019!)   
+Plots for report 2021 (*data* from 2020!)   
 * Get data (used for both maps and figures)   
 * These data are used both by scripts 7b, 7c (which also needs some data from 7b), and 7c  
 
@@ -33,8 +33,8 @@ These are from
 `K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2019\Opsjon 3 biologi\Figurer og Kart (Dag)`  
 ```{r}
 df_stations_all <- read_excel(
-  "Data_input/2020/KartOgFigurgrunnlag_TilDag.xlsx", 
-  sheet = "Kartgrunnlag")
+  "Data_input/2021/KartOgFigurgrunnlag_TilDag.xlsx", 
+  sheet = "Kartgrunnlag2020")
 df_stations_all <- df_stations_all[1:5]
 names(df_stations_all)[c(1,4,5)] <- c("Shortname", "Index_ecol", "Class_chem")
 
@@ -180,9 +180,9 @@ df_stations$Shortname
 ```{r}
 
 # dir.create("Data/2000")
-saveRDS(df_index, "Data/2020/07a_df_index_2019.rds")
-saveRDS(df_index_barplot, "Data/2020/07a_df_index_barplot_2019.rds")
-saveRDS(df_stations, "Data/2020/07a_df_stations_2019.rds")
+saveRDS(df_index, "Data/2021/07a_df_index_2020.rds")
+saveRDS(df_index_barplot, "Data/2021/07a_df_index_barplot_2020.rds")
+saveRDS(df_stations, "Data/2021/07a_df_stations_2020.rds")
 
 ```
 
