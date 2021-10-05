@@ -290,6 +290,64 @@ df_lakes_mjosa <- df_lakes %>% filter(group == 3462)
 
 ## 3. Define inset boxes (boxlist)   
 
+### x. Code for getting box coordinates    
+```{r}
+
+# Recommended to reun in a separate .R script window   
+if (FALSE){
+#
+# Alna
+#
+
+# Testing (change dlon and dlat)
+cent <- get_center(df_stations, grepl("ALN", df_stations$Shortname))
+leaf1 %>% 
+  addRectangles2(list = make_box(df_stations, grepl("ALN", df_stations$Shortname), 
+                                 dlon = 0.35, dlat = 0.25), 
+                         fillColor = "transparent", color = "red") %>%
+  setView(cent[1], cent[2], zoom = 8)
+
+# For code
+make_box_code(df_stations, grepl("ALN", df_stations$Shortname), 
+         dlon = 0.35, dlat = 0.25)
+
+
+#
+# Drammen
+#
+
+# Testing (change dlon and dlat)
+sel <- grepl("DRA", df_stations$Shortname) | grepl("SNA", df_stations$Shortname)
+cent <- get_center(df_stations, sel)
+leaf1 %>% 
+  addRectangles2(list = make_box(df_stations, sel, dlon = 0.55, dlat = 0.40), 
+                 fillColor = "transparent", color = "red") %>%
+  setView(cent[1], cent[2], zoom = 8)
+
+# For code
+make_box_code(df_stations, sel, dlon = 0.55, dlat = 0.40)
+
+
+#
+# Numedalslågen
+#
+
+# Testing (change dlon and dlat)
+sel <- grepl("NUM0", df_stations$Shortname) | grepl("NUM1", df_stations$Shortname)
+cent <- get_center(df_stations, sel)
+leaf1 %>% 
+  addRectangles2(list = make_box(df_stations, sel, dlon = 0.35, dlat = 0.25), 
+                 fillColor = "transparent", color = "red") %>%
+  setView(cent[1], cent[2], zoom = 8)
+
+# For code
+make_box_code(df_stations, sel, dlon = 0.35, dlat = 0.25)
+
+
+```
+
+
+
 ### a. Define boxes which for inset maps    
 Made reiteratively, by running b first and looking at station coordinates   
 ```{r}
@@ -299,25 +357,22 @@ Made reiteratively, by running b first and looking at station coordinates
 boxlist <- list(
   
   list(
-    lng1 = 5.55, lat1 = 61.25, 
-    lng2 = 6.35, lat2 = 61.65
-  ),
-  list(
-    lng1 = 5.7, lat1 = 60.5, 
-    lng2 = 6.5, lat2 = 60.9
+    lng1 = 9.8944, lat1 = 58.9697, 
+    lng2 = 10.2444, lat2 = 59.2197
   ),
   list(
     lng1 = 5.8, lat1 = 59.4, 
     lng2 = 6.5, lat2 = 59.7
   ),
   list(
-    lng1 = 5.4, lat1 = 58.4, 
-    lng2 = 6.2, lat2 = 58.9
+    lng1 = 9.6489, lat1 = 59.7022, 
+    lng2 = 10.1989, lat2 = 60.1022
   ),
   list(
-    lng1 = 8.75, lat1 = 58.55, 
-    lng2 = 9.0, lat2 = 58.7
+    lng1 = 10.663, lat1 = 59.8039, 
+    lng2 = 11.013, lat2 = 60.0539
   )
+  
   
 )
 
@@ -353,11 +408,6 @@ leaf2
 
 ```
 
-### d. TEST BOX
-```{r}
-leaf1 %>% addRectangles2(list = make_box_center(c(8.8, 60)), 
-                         fillColor = "transparent", color = "red")
-```
 
 
 ## .
@@ -365,6 +415,15 @@ leaf1 %>% addRectangles2(list = make_box_center(c(8.8, 60)),
 ## . GOTTEN HERE
 ## .
 ## .
+
+```{r}
+
+
+
+
+
+
+```
 
 
 ## 4. Prepare datasets with UTM coordinates  
