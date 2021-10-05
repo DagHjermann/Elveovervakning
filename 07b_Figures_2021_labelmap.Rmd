@@ -102,7 +102,7 @@ crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
 ### a. Data from script 7a
 ```{r}
 
-df_stations <- readRDS("Data/2020/07a_df_stations_2019.rds")
+df_stations <- readRDS("Data/2021/07a_df_stations_2020.rds")
 
 ```
 
@@ -112,7 +112,7 @@ df_stations <- readRDS("Data/2020/07a_df_stations_2019.rds")
 # Gotten from Geonorge ("Norske fylker og kommuner illustrasjonsdata 2019 (klippet etter kyst)")
 #   https://kartkatalog.geonorge.no/metadata/cb02ab77-d3e6-4500-8a92-ea67367e7734 
 #   https://nedlasting.geonorge.no/geonorge/Generell/AdmEnh_klippet_etter_kyst2019.zip  
-map_counties_utm33 <- sf::st_read("Data_input/2019/AdmEnh_klippet_etter_kyst2019/Fylker19.geojson")
+map_counties_utm33 <- sf::st_read("Data_input/2021_map/fylker2021.json")
 # UTM zone 33
 # plot(map_counties_utm)
 
