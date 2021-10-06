@@ -336,14 +336,14 @@ geom_text_left <- function(..., data, xvar = "x", yvar = "y",
 
 
 #
-# Making labels, left side
+# Making labels, right side
 #
 geom_text_right <- function(..., data, xvar = "x", yvar = "y", 
                             order = "n to s", same_x = TRUE,
-                           xdist = 0, y_pos = 0, 
-                           y_even_dist = NULL, y_even_pos = 0, y_even_sel = NULL,
-                           xadj_start = 0, xadj_end = xadj_start,
-                           segment.color = "black"){
+                            xdist = 0, y_pos = 0, 
+                            y_even_dist = NULL, y_even_pos = 0, y_even_sel = NULL,
+                            xadj_start = 0, xadj_end = xadj_start,
+                            segment.color = "black"){
   position_list <- pos_text(data = data, xvar = xvar, yvar = yvar, order = order, same_x = same_x,
                             xdist = xdist, y_pos = y_pos, 
                             y_even_dist = y_even_dist, y_even_pos = y_even_pos, y_even_sel = y_even_sel,
@@ -355,6 +355,70 @@ geom_text_right <- function(..., data, xvar = "x", yvar = "y",
                  color = segment.color)
   )
 }
+
+
+
+
+#
+# Making labels, above
+# Doesn't work, I had forgotten about how to make such functions  
+#
+
+# geom_text_above <- function(..., data, xvar = "x", yvar = "y", 
+#                             y_dist = 3E3, y_gap = 0.8E3,
+#                             segment.color = "black"){
+#   list(
+#     geom_text(
+#       data = data,
+#       aes(label = Shortname, y = y + y_dist), ...),
+#     geom_segment(
+#       data = data,
+#       aes(xend = x, y = y + y_gap, yend = y + y_dist - y_gap), 
+#       color = segment.color)
+#   )
+# }
+
+#
+# Making labels, above
+# More straightforward approach - use %>% instead of +  
+#
+
+add_label_above <- function(gg, data, 
+                            y_dist = 3E3, y_gap = 0.8E3,
+                            segment.color = "black",
+                            ...){
+  gg +
+    geom_text(
+      data = data,
+      aes(label = Shortname, y = y + y_dist), ...
+    ) +
+    geom_segment(
+      data = data,
+      aes(xend = x, y = y + y_gap, yend = y + y_dist - y_gap), 
+      color = segment.color
+    )
+}
+
+# test <- gg_box[[i]] %>% add_label_above(data = data_box[[i]] %>% filter(group == "above"))
+# test
+
+add_label_below <- function(gg, data, 
+                            y_dist = 3E3, y_gap = 0.8E3,
+                            segment.color = "black",
+                            ...){
+  gg +
+    geom_text(
+      data = data,
+      aes(label = Shortname, y = y - y_dist), ...
+    ) +
+    geom_segment(
+      data = data,
+      aes(xend = x, y = y - y_gap, yend = y - y_dist + y_gap), 
+      color = segment.color
+    )
+}
+
+
 
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
