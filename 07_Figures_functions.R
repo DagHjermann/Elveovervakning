@@ -83,8 +83,22 @@ crs_string <- function(projection, zone = NA){
 # crs_string("longlat")
 # crs_string("utm", 32)
 
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# Functions for defining coordinates of insets ----
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
+# Make list for box, given box center as input
+make_box_center <- function(center, dlon = 0.25, dlat = 0.15){
+  list(
+    lng1 = center[1] - dlon/2, lat1 = center[2] - dlat/2, 
+    lng2 = center[1] + dlon/2, lat2 = center[2] + dlat/2
+  )
+}
 
+# As 'make_box_center', but just returns the code for making the 
+#   list
 make_box_code_center <- function(center, dlon = 0.25, dlat = 0.15){
   glue(
   "list(
@@ -93,31 +107,37 @@ make_box_code_center <- function(center, dlon = 0.25, dlat = 0.15){
   )")
 }
 
-make_box_center <- function(center, dlon = 0.25, dlat = 0.15){
-  list(
-    lng1 = center[1] - dlon/2, lat1 = center[2] - dlat/2, 
-    lng2 = center[1] + dlon/2, lat2 = center[2] + dlat/2
-  )
-  }
-
 get_center <- function(data, sel){
   if (length(sel) != nrow(data))
     stop("'sel' must have same length as number of rows in 'data'")
   message("Number of selected rows: ", sum(sel))
   data <- as.data.frame(data)
   c(
-    mean(data[sel, "Long"], na.rm = TRUE),
-    mean(data[sel, "Lat"], na.rm = TRUE)
+    round(mean(data[sel, "Long"], na.rm = TRUE), 4),
+    round(mean(data[sel, "Lat"], na.rm = TRUE), 4)
   )
 } 
 
-make_box_code <- function(data, sel, dlon, dlat){
-  get_center(data = data, sel = sel)
-  make_box_code_center()
+# Make list for box, given data and selected ponts
+# - center is defined from the selected points  
+make_box <- function(data, sel, dlon, dlat){
+  center <- get_center(data = data, sel = sel)
+  make_box_center(center, dlon = dlon, dlat = dlat)
 }
-make_box_code_center(c(8.8, 60))
-make_box_center(c(8.8, 60))
-get_center(df_stations, grepl("ALN", df_stations$Shortname))
+
+make_box_code <- function(data, sel, dlon, dlat){
+  center <- get_center(data = data, sel = sel)
+  make_box_code_center(center, dlon = dlon, dlat = dlat)
+}
+
+
+if (FALSE){
+  make_box_code_center(c(8.8, 60))
+  make_box_center(c(8.8, 60))
+  get_center(df_stations, grepl("ALN", df_stations$Shortname))
+  make_box_code(df_stations, grepl("ALN", df_stations$Shortname))
+  make_box(df_stations, grepl("ALN", df_stations$Shortname))
+}
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 #
