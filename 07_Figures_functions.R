@@ -181,6 +181,13 @@ fix_river_errors <- function(riverdata, limit_meters = 5000, print = FALSE){
 # Positioning for label placement, left or right side
 #
 
+# Codes for position:
+#   - xdist + xadj_start (what's the difference?) - distance to point in x direction   
+#   - y_even_dist (if set) - labels put in even y distance 
+#   - y_even_pos - relative y position
+#   - y_even_dist not set - labels put just straight to the left/right
+
+
 # Ideas for improvement:
 #   - same_x => straight
 #   - and/or: slant = NA (straight = FALSE), slant = 0 (straght vertical), slant = 1 (same slope as points)
