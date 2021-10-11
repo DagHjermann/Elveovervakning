@@ -1,0 +1,14 @@
+---
+title: "01_Get_annual_data"
+author: "DHJ"
+date: "4 11 2019"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+---
+    
+*Air temperature and precipitation for a bunch of stations*   
+
+*See `Hjelp/Elveovervaakning_klima` for this part  
