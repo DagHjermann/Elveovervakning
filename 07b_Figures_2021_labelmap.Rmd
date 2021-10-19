@@ -861,6 +861,9 @@ if (show_insets)
 
 i <- 2
 
+data_box[[i]] <- df_stations %>%
+  filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
+
 gg_box[[i]] <- make_subplot_nolabels(i)
 
 if (FALSE){
@@ -1048,6 +1051,129 @@ if (FALSE){
   png(fn, width = 7, height = 5, res = 400)
   dev.off()
 }
+
+```
+
+```{r}
+
+df_stations_north
+
+```
+
+## 10. Northern part  
+
+### a. background  
+
+```{r}
+# Check counties: it turns out that 5 = Nordland, 10 = Troms + Finnmark
+df_counties2 <- df_counties_all %>%
+  filter(id %in% 10)
+
+# Get county numbers
+county_numbers <- unique(df_counties2$id)
+
+# Start 'gg_back'
+gg_back2 <- ggplot(data = df_counties2, aes(x, y)) + 
+  geom_blank() + 
+  coord_fixed() +
+  theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        )
+
+# Add one county after the other
+for (i in county_numbers){
+  gg_back2 <- gg_back2 + 
+    geom_polygon(data = df_counties2 %>% filter(L1 == 1 & id %in% i), 
+                 aes(x, y, group = group), fill = "navajowhite", color = "grey30")
+}
+
+# For adjusting limits:
+ggdata <- layer_data(gg_back2)
+
+gg_back2
+
+# test use of ggdata
+if (FALSE)
+  gg_back2 + ylim(range(ggdata$y) + c(-100E3, 0))
+
+```
+
+### c. Stations, add UTM coordinates
+```{r}
+
+# The default transformation for 'add_transformed_coord' is from latlong to 
+df_stations_north <- add_transformed_coord(df_stations_north, 
+                                     name_x = "Long", name_y = "Lat",
+                                     from = "longlat", to = "utm", to_zone = 32)
+
+```
+
+### b. Plot using repel     
+All stations, and labels for stations outside inset boxes
+```{r, fig.width=8, fig.height=10}
+
+gg1 <- gg_back2 +
+  geom_point(
+    data = df_stations_north, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  theme(  legend.position = c(.05, .95),
+          legend.justification = c("left", "top"),
+          legend.box.just = "left",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
+  geom_label_repel(
+    data = df_stations_north, 
+    aes(label = Shortname, shape = Stasjonstype), color = "blue3", 
+    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 50000, box_padding = 0.5,
+    point_padding = 0.5)
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_nnorway_rough.png", gg1, 
+          width = 9, height = 6)
+
+gg1
+
+```
+
+
+```{r}
+
+
+nrow(df_stations_north)
+
+
+# Leaflet plot
+if (FALSE){
+  
+  leaf3 <- leaflet(df_stations_north) %>%
+    addTiles() %>%
+    addCircleMarkers(lng = df_stations_outside$Long, lat = df_stations_outside$Lat,
+                     popup = paste0(
+                       df_stations_outside$Shortname, "<br>",
+                       df_stations_outside$Long, ", ", df_stations_outside$Lat, "<br>",
+                       round(df_stations_outside$x, 0), ", ", 
+                       round(df_stations_outside$y, 0)
+                       ),
+                     radius = 5)
+  
+  for (box in boxlist)
+    leaf3 <- leaf3 %>% addRectangles2(list = box, fillColor = "transparent")
+  
+  leaf3
+  
+}
+
+```
+
+
+```{r}
 
 ```
 
