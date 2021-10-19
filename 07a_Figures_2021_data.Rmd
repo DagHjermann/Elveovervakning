@@ -85,10 +85,13 @@ xtabs(~addNA(Stasjonstype) + addNA(Class_chem), df_stations)
 * df_index is the actual data  
 * df_index_barplot will be used for bar plots (see remark in comments)
 ```{r}
-df_index <- read_excel("Data_input/2020/KartOgFigurgrunnlag_TilDag.xlsx", 
-                       sheet = "Figurgrunnlag",
-                       na = "NA", 
-                       col_types = c("text", rep("numeric",3))) 
+# readxl::excel_sheets("Data_input/2021/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx")
+
+df_index <- read_excel(
+  "Data_input/2021/KartOgFigurgrunnlag_TilDag.xlsx", 
+  na = "NA",
+  col_types = c("text", rep("numeric", 3)),
+  sheet = "Figurgrunnlag2020")
 
 names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol") # NOTE: hard-coded
 
@@ -103,17 +106,21 @@ df_index <- df_index %>%
 df_index
 
 # Data for barplots
+df_index_barplot <- df_index
+
+# Data for barplots (2020, ie. 2019 data)
 # "27.ORK1" has a missing value for 'nEQR_ecol', but it is supposed to be 'Moderate' 
 #   with 'unapplicable' nEQR_ecol. We here setr it to 0.5 jsut to have something to plot 
-df_index_barplot <- df_index %>%
-  mutate(nEQR_ecol =
-           case_when(Rapportnavn %in% "27.ORK1" ~ 0.5,
-                     TRUE ~ nEQR_ecol)
-         ) %>%
-  mutate(Label =
-           case_when(Rapportnavn %in% "27.ORK1" ~ paste(Rapportnavn, "(nEQR-verdi ikke gjeldende)"),
-                     TRUE ~ Rapportnavn)
-         )
+
+# df_index_barplot <- df_index %>%
+#   mutate(nEQR_ecol =
+#            case_when(Rapportnavn %in% "27.ORK1" ~ 0.5,
+#                      TRUE ~ nEQR_ecol)
+#          ) %>%
+#   mutate(Label =
+#            case_when(Rapportnavn %in% "27.ORK1" ~ paste(Rapportnavn, "(nEQR-verdi ikke gjeldende)"),
+#                      TRUE ~ Rapportnavn)
+#          )
   
 
 ```
@@ -128,6 +135,7 @@ for (var in c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")){
   x1 <- df_index_barplot[[var]]
   x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
   x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+  x3[is.na(x3)] <- "Uklassifisert"
   
   # Make variable 'Class'
   df_index_barplot$Class <- factor(x3, levels = c("Svært god", "God", "Moderat", 
@@ -145,12 +153,12 @@ for (var in c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")){
 # Tabulate the result
 df_index_barplot %>%
   # First, put the data on long format
-  select(Rapportnavn, nEQR_eutrofi_klasse, nEQR_forsuring_klasse, nEQR_ecol_klasse) %>%
+  dplyr::select(Rapportnavn, nEQR_eutrofi_klasse, nEQR_forsuring_klasse, nEQR_ecol_klasse) %>%
   tidyr::pivot_longer(
     cols = -Rapportnavn,
     names_to = "Type", values_to = "Class") %>%
   # Then make table  
-  xtabs(~Type + Class, .)
+  xtabs(~Type + addNA(Class), .)
       
 
 ```
@@ -158,14 +166,18 @@ df_index_barplot %>%
 ### e. Change index value for one salt water influenced station  
 ```{r}
 
-sel <- grepl("STR1", df_index_barplot$Rapportnavn)
-cat(sum(sel), "station chosen \n")
-
-df_index_barplot$nEQR_eutrofi_klasse[sel] <- "Uklassifisert"
-df_index_barplot$nEQR_forsuring_klasse[sel] <- "Uklassifisert"
-df_index_barplot$nEQR_ecol_klasse[sel] <- "Uklassifisert"
-
-cat("Class set to NA for station",  sQuote(df_index_barplot$Rapportnavn[sel]), "  \n")
+if (FALSE){
+  
+  sel <- grepl("STR1", df_index_barplot$Rapportnavn)
+  cat(sum(sel), "station chosen \n")
+  
+  df_index_barplot$nEQR_eutrofi_klasse[sel] <- "Uklassifisert"
+  df_index_barplot$nEQR_forsuring_klasse[sel] <- "Uklassifisert"
+  df_index_barplot$nEQR_ecol_klasse[sel] <- "Uklassifisert"
+  
+  cat("Class set to NA for station",  sQuote(df_index_barplot$Rapportnavn[sel]), "  \n")
+  
+}
 
 
 ```
