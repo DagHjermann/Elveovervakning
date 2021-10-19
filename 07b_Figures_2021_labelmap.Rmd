@@ -878,7 +878,7 @@ data_box[[i]] <- data_box[[i]] %>%
 # Add labels  
 gg_box[[i]] <- gg_box[[i]] %>%
   add_label_above(data = data_box[[i]] %>% filter(group == "above"),
-                  color = "blue3", segment.color = "blue3", hjust = 0) %>%
+                  color = "blue3", segment.color = "blue3", hjust = c(0,1) %>%
   add_label_below(data = data_box[[i]] %>% filter(group == "below"),
                   color = "blue3", segment.color = "blue3", hjust = 0)
 
