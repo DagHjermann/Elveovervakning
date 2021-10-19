@@ -1,7 +1,7 @@
 ---
-title: "Barplot figures (2020)"
+title: "Barplot figures (2020 data)"
 author: "DHJ"
-date: "23 10 2020"
+date: "19 10 2021"
 output: 
   html_document:
     keep_md: true
@@ -29,7 +29,7 @@ save_plots <- TRUE
 #
 # Where to save figures
 #
-folder_fig <- "Figures/2020"
+folder_fig <- "Figures/2021_main"
 
 
 ```
@@ -93,18 +93,18 @@ names(class_colors) <- df_colors$Status_no
 ```{r}
 
 # From script 7a
-# df_index <- readRDS("Data/2020/07a_df_index_2019.rds")
-df_index_barplot <- readRDS("Data/2020/07a_df_index_barplot_2019.rds")
+# df_index <- readRDS("Data/2021/07a_df_index_2019.rds")
+df_index_barplot <- readRDS("Data/2021/07a_df_index_barplot_2020.rds")
 
 # From script 7b, part 4c
-# df_stations <- readRDS("Data/2020/07b_df_stations.rds")   # with UTM 32 coordinates
+# df_stations <- readRDS("Data/2021/07b_df_stations.rds")   # with UTM 32 coordinates
 
 ```
 
 
 ## 3. Bar plots
 ### a. Eutrofiering
-```{r, fig.height=7}
+```{r, fig.width = 8, fig.height=10}
 label <- "Samlet eutrofieringstilstand (nEQR)"
 plotno <- "1a"
 # debugonce(make_indexplot)
@@ -113,9 +113,12 @@ gg <- make_barplot_index(df_index_barplot, "nEQR_eutrofi", label)
 if (save_plots){
   ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".png"), gg, 
          width = 8.5, height = 10.5, dpi = 500)
-  ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".svg"), gg, 
-         width = 8.5, height = 10.5)
+  # Error in svglite_(file, bg, width, height, pointsize, standalone, aliases) : 
+  #   Graphics API version mismatch
+  # ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".svg"), gg, 
+  #        width = 8.5, height = 10.5)
 }
+
 gg
 
 ```
@@ -126,12 +129,14 @@ gg
 label <- "Samlet forsuringstilstand (nEQR)"
 plotno <- "1b"
 gg <- make_barplot_index(df_index_barplot, "nEQR_forsuring", label)
+
 if (save_plots){
   ggsave2("{folder_fig}/07_{plotno}_{label}.png", gg, 
          width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}.svg", gg, 
-         width = 8.5, height = 10.5, dpi = 500)
+  # ggsave2("{folder_fig}/07_{plotno}_{label}.svg", gg, 
+  #        width = 8.5, height = 10.5, dpi = 500)
   }
+
 gg
 
 ```
@@ -139,8 +144,10 @@ gg
 
 ### c. Samlet økologisk tilstand 
 ```{r, fig.height=8.5}
+
 label <- "Samlet økologisk tilstand (nEQR)"
 plotno <- "1c"
+
 gg1 <- make_barplot_index(df_index_barplot, "nEQR_ecol", label)
 gg2 <- gg1 + 
   # Add all-white label (to cover the vertical lines)
@@ -148,7 +155,7 @@ gg2 <- gg1 +
   # geom_label(aes(Rapportnavn, Indeksverdi, label = Label),
   #            hjust = 0, nudge_y = 0.005, nudge_x = 0, color = "white", fill = "white") +
   # Add text
-  geom_text(aes(Rapportnavn, Indeksverdi, label = Label),
+  geom_text(aes(Rapportnavn, Indeksverdi, label = Rapportnavn),
              hjust = 0, nudge_y = 0.005, nudge_x = 0)
 gg3 <- gg2 + 
   theme(axis.text.y = element_blank())
@@ -157,16 +164,16 @@ gg3 <- gg2 +
 if (save_plots){
   ggsave2("{folder_fig}/07_{plotno}_{label}_ver1.png", gg1, 
          width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver1.svg", gg1, 
-         width = 8.5, height = 10.5, dpi = 500)
+  # ggsave2("{folder_fig}/07_{plotno}_{label}_ver1.svg", gg1, 
+  #        width = 8.5, height = 10.5, dpi = 500)
   ggsave2("{folder_fig}/07_{plotno}_{label}_ver2.png", gg2, 
          width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver2.svg", gg2, 
-         width = 8.5, height = 10.5, dpi = 500)
+  # ggsave2("{folder_fig}/07_{plotno}_{label}_ver2.svg", gg2, 
+  #        width = 8.5, height = 10.5, dpi = 500)
   ggsave2("{folder_fig}/07_{plotno}_{label}_ver3.png", gg3, 
          width = 8.5, height = 10.5, dpi = 500)
-  ggsave2("{folder_fig}/07_{plotno}_{label}_ver3.svg", gg3, 
-         width = 8.5, height = 10.5, dpi = 500)
+  # ggsave2("{folder_fig}/07_{plotno}_{label}_ver3.svg", gg3, 
+  #        width = 8.5, height = 10.5, dpi = 500)
 }
 
 gg1
