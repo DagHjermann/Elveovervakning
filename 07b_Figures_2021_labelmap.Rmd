@@ -1063,8 +1063,8 @@ df_stations_north
 ## 10. Northern part  
 
 ### a. background  
-
 ```{r}
+
 # Check counties: it turns out that 5 = Nordland, 10 = Troms + Finnmark
 df_counties2 <- df_counties_all %>%
   filter(id %in% 10)
@@ -1075,7 +1075,7 @@ county_numbers <- unique(df_counties2$id)
 # Start 'gg_back'
 gg_back2 <- ggplot(data = df_counties2, aes(x, y)) + 
   geom_blank() + 
-  coord_fixed() +
+  coord_fixed(xlim = range(df_counties2$x), ylim = range(df_counties2$y)) +
   theme_minimal() +
   theme(panel.grid = element_blank(),
         axis.title = element_blank(),
@@ -1089,6 +1089,12 @@ for (i in county_numbers){
     geom_polygon(data = df_counties2 %>% filter(L1 == 1 & id %in% i), 
                  aes(x, y, group = group), fill = "navajowhite", color = "grey30")
 }
+
+gg_back2 <- gg_back2  +
+  geom_path(data = df_rivers_strahler6, 
+            aes(group = group), col = rivercol) # +
+  # geom_polygon(data = df_lakes, 
+  #              aes(group = group), col = rivercol, fill = rivercol)
 
 # For adjusting limits:
 ggdata <- layer_data(gg_back2)
@@ -1114,6 +1120,8 @@ df_stations_north <- add_transformed_coord(df_stations_north,
 ### b. Plot using repel     
 All stations, and labels for stations outside inset boxes
 ```{r, fig.width=8, fig.height=10}
+
+
 
 gg1 <- gg_back2 +
   geom_point(
@@ -1142,6 +1150,118 @@ gg1
 
 ```
 
+
+### c. Test code used to select label positions
+```{r}
+
+df_extent <- tibble(
+  x = c(range(ggdata$x), rev(range(ggdata$x))),
+  y = rep(range(ggdata$y), each = 2))
+
+ggplot(df_extent, aes(x,y)) +
+  geom_polygon(fill = "grey85") +
+  geom_point(
+    data = df_stations_north, 
+    aes(x = x, y = y, label = Shortname, shape = Stasjonstype)) +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("50","51","52")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 20E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("47","48","49")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 20E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("44","45","46")),
+    xdist = 20E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 20E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("42","43")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 20E3, y_even_pos = 30E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("40","41")),
+    xdist = 20E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 20E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3")
+
+```
+
+### d. Plot using code above       
+All stations, and labels for stations outside inset boxes
+```{r, fig.width=8, fig.height=10}
+
+
+gg1 <- gg_back2 +
+  geom_point(
+    data = df_stations_north, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  theme(  legend.position = c(.05, .95),
+          legend.justification = c("left", "top"),
+          legend.box.just = "left",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("50","51","52")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("47","48","49")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("44","45","46")),
+    xdist = 20E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("42","43")),
+    xdist = 27E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = 15E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("40","41")),
+    xdist = 14E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3")
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_nnorway.png", gg1, 
+          width = 9, height = 6)
+
+gg1
+
+``` 
 
 ```{r}
 
