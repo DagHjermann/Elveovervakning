@@ -126,7 +126,6 @@ names(class_colors) <- df_colors$Status_no
 df_index <- readRDS("Data/2021/07a_df_index_2020.rds")
 df_index_barplot <- readRDS("Data/2021/07a_df_index_barplot_2020.rds")
 
-
 # From script 7b, part 4c
 df_stations_all <- readRDS("Data/2021/07b_df_stations.rds")   # with UTM 32 coordinates
 
@@ -265,6 +264,20 @@ df_rivers_strahler5 <- nc_rivers_strahler4 %>%
   rename(group = L2) %>%
   fix_river_errors(limit_meters = 2000)  # Fix errors (i.e. remove extremely long segments)
 
+df_rivers_strahler6 <- nc_rivers_strahler4 %>%
+  filter(STRAHLER >= 6) %>% 
+  st_coordinates %>%
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2) %>%
+  fix_river_errors(limit_meters = 2000) # Fix errors (i.e. remove extremely long segments)
+
+
 df_rivers_strahler7 <- nc_rivers_strahler4 %>%
   filter(STRAHLER >= 7) %>% 
   st_coordinates %>%
@@ -360,11 +373,6 @@ ggplot(df_pies, aes(Class_ecol, Index_ecol, fill = Class_ecol)) +
   theme(panel.background = element_rect(fill = "grey70"), panel.grid = element_blank())
 
 ```
-```{r}
-
-df_pies$Class_chem %>% table()
-
-```
 
 ### c. Chemical class, levels and colors    
 ```{r}
@@ -375,7 +383,7 @@ df_pies <- df_pies %>%
       is.na(Class_chem) ~ class_colors["Uklassifisert"],
       Class_chem %in% "God" ~ class_colors["Svært god"],
       Class_chem %in% "Ikke god" ~ class_colors["Svært dårlig"],
-      Class_chem %in% "i.d." ~ class_colors["Uklassifisert"])
+      Class_chem %in% c("i.d.", "ID") ~ class_colors["Uklassifisert"])
   )
 
 
@@ -488,41 +496,41 @@ group5 <- c("10", "11", "12")    # left
 group6 <- c("04", "05", "06")               # right
 group7 <- c("01","02","03")    # left
 
-
-get_x <- function(name, data = df_stations)
-  subset(data, Shortname %in% name)$x
-get_y <- function(name, data = df_stations)
-  subset(data, Shortname %in% name)$y
-
 # For setting ylim:
 ggdata <- layer_data(gg_back)
 
 gg2 <- gg_back +
-  # geom_path(data = df_rivers_strahler7, 
-  #           aes(group = group), col = rivercol) +
-  # geom_polygon(data = df_lakes_mjosa, 
-  #              aes(group = group), col = rivercol, fill = rivercol) +
-  geom_point(
-    data = df_stations,
-    aes(label = Shortname, shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
-  scale_fill_brewer(palette = "Set1") +
-  scale_shape_manual(values = c(21,22,24)) +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(Shortname %in% group1), 
-    xdist = 30E3, y_even_dist = 20E3, xadj_start = 7E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(Shortname %in% group2a), 
-    xdist = 20E3, y_even_dist = 20E3, y_even_pos = 40E3, xadj_start = 7E3,
-    order = "E to W",
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(Shortname %in% group2b), 
-    xdist = 20E3, y_even_dist = 20E3, y_even_pos = -35E3, xadj_start = 7E3,
-    color = "blue3", segment.color = "blue3") +
+  geom_path(data = df_rivers_strahler7,
+            aes(group = group), col = rivercol) +
+  geom_polygon(data = df_lakes_mjosa,
+               aes(group = group), col = rivercol, fill = rivercol) +
+  # only in quality map, not label map:
+  theme(legend.position = "none") +        
+  # only in label map, not in quality map:
+  # geom_point(
+  #   data = df_stations,
+  #   aes(label = Shortname, shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
+  # scale_fill_brewer(palette = "Set1") +
+  # scale_shape_manual(values = c(21,22,24)) +
+  
+  # The next three label groups are mines (Gruve) - shall not be included here:
+  #
+  # geom_text_right(
+  #   aes(label = Shortname), 
+  #   data = df_stations %>% filter(Shortname %in% group1), 
+  #   xdist = 30E3, y_even_dist = 20E3, xadj_start = 7E3,
+  #   color = "blue3", segment.color = "blue3") +
+  # geom_text_left(
+  #   aes(label = Shortname), 
+  #   data = df_stations %>% filter(Shortname %in% group2a), 
+  #   xdist = 20E3, y_even_dist = 20E3, y_even_pos = 40E3, xadj_start = 7E3,
+  #   order = "E to W",
+  #   color = "blue3", segment.color = "blue3") +
+  # geom_text_right(
+  #   aes(label = Shortname), 
+  #   data = df_stations %>% filter(Shortname %in% group2b), 
+  #   xdist = 20E3, y_even_dist = 20E3, y_even_pos = -35E3, xadj_start = 7E3,
+  #   color = "blue3", segment.color = "blue3") +
   geom_text_left(
     aes(label = Shortname), 
     data = df_stations %>% filter(grepl("OTR", Shortname)), 
@@ -567,10 +575,19 @@ gg2 <- gg_back +
     data = df_stations %>% filter(substr(Shortname,1,2) %in% group7), 
     xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = -5E3, 
     color = "blue3", segment.color = "blue3") +
+  # only in quality map, not label map:
+  geom_subview(data = df_pies %>% filter(!Shortname %in% c(group1, group2a, group2b)), 
+               aes(x = x, y = y, subview = pie, width = width, height = height)) +
   xlim(range(ggdata$x) + c(-50E3, 50E3)) +  
   ylim(range(ggdata$y) + c(-50E3, 0))   
 
 # gg2
+
+if (save_plots){
+  fn <- glue("{folder_fig}/07c_qualitymap_outside_boxes2.png")
+  scale <- 1.5
+  ggsave(fn, gg2, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+}
 
 ```
 
@@ -663,12 +680,15 @@ qualplot_add_pies <- function(gg, data, box, i) {
 ### Inset 1
 ```{r, fig.width = 5, fig.height = 5}
 
+# ------------------ ************************ ------------------- #
 #
+# HOW TO CODE
 # For each inset 1-5:
 #   - the TOP (except "i <- 1") and BOTTOM parts are always the same
 #   - the MIDDLE part between A and B (adding labels) is copy-pasted 
 #   from script 07b (yes, I know...)
 #
+# ------------------ ************************ ------------------- #
 
 i <- 1
 
@@ -691,21 +711,11 @@ data_box[[i]] <- data_box[[i]] %>%
 
 # Add levels
 gg_box[[i]] <- gg_box[[i]] +
+  # The rest is copied from the corresponding place in 07b...2021
   geom_text_right(
     aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "right"),
+    data = data_box[[i]],
     xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "left"),
-    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "above"),
-    xdist = 4E3, same_x = FALSE, xadj_start = 900, 
-    y_even_dist = 0, y_even_pos = 3E3,
     color = "blue3", segment.color = "blue3")
 
 # ------------------ B ------------------- #
@@ -720,6 +730,10 @@ gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
 ### Inset 2
 ```{r, fig.width = 5, fig.height = 5}
 
+# ------------------ ************************ ------------------- #
+# HOW TO CODE: see comment for inset 1
+# ------------------ ************************ ------------------- #
+
 i <- 2
 
 box <- box_polygons %>% filter(boxnumber == i)
@@ -729,12 +743,22 @@ gg_box[[i]] <- gg_back +
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes, 
                aes(group = group), col = rivercol, fill = rivercol)
+  
+# ------------------ A ------------------- #
 
-gg_box[[i]] <- gg_box[[i]] +
-  geom_text_repel(
-      data = data_box[[i]], 
-      aes(label = Shortname), color = "blue3", 
-      label.padding = 0.15, point.padding = 1)
+# Add 'group' (we will make different labels for each group)
+data_box[[i]] <- data_box[[i]] %>%
+  mutate(group = case_when(
+    substr(Shortname,1,2) %in% c("33","36") ~ "above",
+    TRUE ~ "below"))
+
+# Add labels  
+gg_box[[i]] <- gg_box[[i]] %>%
+  add_label_above(data = data_box[[i]] %>% filter(group == "above"),
+                  color = "blue3", segment.color = "blue3", hjust = c(0,1)) %>%
+  add_label_below(data = data_box[[i]] %>% filter(group == "below"),
+                  color = "blue3", segment.color = "blue3", hjust = 0)
+
 
 # ------------------ B ------------------- #
   
@@ -744,9 +768,12 @@ gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
 # gg_box[[i]]
 
 ```
-
 ### Inset 3
 ```{r, fig.width = 5, fig.height = 5}
+
+# ------------------ ************************ ------------------- #
+# HOW TO CODE: see comment for inset 1
+# ------------------ ************************ ------------------- #
 
 i <- 3
 
@@ -757,17 +784,14 @@ gg_box[[i]] <- gg_back +
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes, 
                aes(group = group), col = rivercol, fill = rivercol)
-
+  
 # ------------------ A ------------------- #
 
 # Add 'group' (we will make different labels for each group)
 data_box[[i]] <- data_box[[i]] %>%
   mutate(group = case_when(
-    substr(Shortname,1,2) %in% c("19") ~ "left",
-    substr(Shortname,1,2) %in% c("21") ~ "right up",
-    substr(Shortname,1,2) %in% c("25") ~ "left up",
-    TRUE ~ "right"))
-
+    substr(Shortname,1,2) %in% c("13") ~ "right",
+    TRUE ~ "left"))
 
 # Add labels  
 gg_box[[i]] <- gg_box[[i]] +
@@ -780,30 +804,24 @@ gg_box[[i]] <- gg_box[[i]] +
     aes(label = Shortname), 
     data = data_box[[i]] %>% filter(group == "left"),
     xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "right up"),
-    xdist = 0.1E3, same_x = FALSE, xadj_start = 900, y_pos = 4E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "left up"),
-    xdist = 0.1E3, same_x = FALSE, xadj_start = 900, y_pos = 4E3,  
     color = "blue3", segment.color = "blue3")
+
 
 # ------------------ B ------------------- #
   
-gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], 
-                                 data_box[[i]] %>% arrange(desc(Index_ecol)),  # yellow one on top! 
-                                 box, i)
+gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
 
 
 # gg_box[[i]]
 
 ```
+
 ### Inset 4
 ```{r, fig.width = 5, fig.height = 5}
+
+# ------------------ ************************ ------------------- #
+# HOW TO CODE: see comment for inset 1
+# ------------------ ************************ ------------------- #
 
 i <- 4
 
@@ -814,33 +832,19 @@ gg_box[[i]] <- gg_back +
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes, 
                aes(group = group), col = rivercol, fill = rivercol)
-
+  
 # ------------------ A ------------------- #
 
 # Add 'group' (we will make different labels for each group)
-data_box[[i]] <- data_box[[i]] %>%
-  mutate(group = case_when(
-    substr(Shortname,1,2) %in% c("18") ~ "rightbelow",
-    substr(Shortname,1,2) %in% c("14") ~ "left",
-    TRUE ~ "right"))
+# Not needed in this case
 
 # Add labels  
-gg_box[[i]] <- gg_box[[i]] +
+# gg_box[[i]] <- gg_box[[i]] +
+gg_box[[i]]  <- gg_box[[i]] +
   geom_text_right(
     aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "right"),
-    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "left"),
-    xdist = 3.5E3, same_x = FALSE, xadj_start = 900, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "rightbelow"),
-    xdist = 4E3, same_x = FALSE, xadj_start = 900, 
-    y_even_dist = 0, y_even_pos = -3E3,
+    data = data_box[[i]],
+    xdist = 2.5E3, same_x = FALSE, xadj_start = 900, 
     color = "blue3", segment.color = "blue3")
 
 # ------------------ B ------------------- #
@@ -848,65 +852,22 @@ gg_box[[i]] <- gg_box[[i]] +
 gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
 
 
-
 # gg_box[[i]]
 
 ```
 
-### Inset 5
-```{r, fig.width = 5, fig.height = 5}
-
-i <- 5
-
-box <- box_polygons %>% filter(boxnumber == i)
-data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
-gg_box[[i]] <- gg_back +
-  geom_path(data = df_rivers_strahler5, 
-            aes(group = group), col = rivercol) +
-  geom_polygon(data = df_lakes, 
-               aes(group = group), col = rivercol, fill = rivercol)
-
-# ------------------ A ------------------- #
-
-# Add 'group' (we will make different labels for each group)
-data_box[[i]] <- data_box[[i]] %>%
-  mutate(group = case_when(
-    substr(Shortname,1,2) %in% c("07") ~ "right",
-    TRUE ~ "left"))
-
-# Add labels  
-gg_box[[i]] <- gg_box[[i]] +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "right"),
-    xdist = 2E3, same_x = FALSE, xadj_start = 400, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = data_box[[i]] %>% filter(group == "left"),
-    xdist = 2E3, same_x = FALSE, xadj_start = 400,  
-    color = "blue3", segment.color = "blue3")
-
-# ------------------ B ------------------- #
-  
-gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
-
-# gg_box[[i]]
-
-```
 
 ## 6. Final map
 ```{r}
 
 # Positions on scale 0 to 1 (of lower left corner)
-# These are strangely hard to set correctly
+# Copied from 07b 2021 version
 box_pos <- tibble::tribble(
   ~x,    ~y,
-  0.37,  0.6,
-  0.07,  0.6,
-  0.07,  0.44,  # 
-  0.07,  0.15,
-  0.70,  0.15
+  0.78,  0.15,
+  0.19,  0.551,
+  0.19,  0.291,  # 
+  0.19,  0.15
 )
 
 # Size, given on scale 0 to 1 
@@ -919,7 +880,7 @@ gg4 <- ggdraw() +
   draw_plot(gg3, x = 0.15, y = 0, scale = 0.7)
 
 # Add
-for (i in 1:5){
+for (i in seq_along(gg_box)){
   gg4 <- gg4 + draw_plot(
     gg_box[[i]], 
     x = box_pos$x[i], y = box_pos$y[i], 
@@ -935,12 +896,6 @@ if (save_plots){
   ggsave(fn1, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
   ggsave(fn2, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 1000/scale)  
 }
-
-```
-
-
-```{r}
-
 
 ```
 
