@@ -30,10 +30,18 @@ source("07_Figures_functions.R")
 ## 2. Data
 ### a. Read station data (coordinates) for all sample sites  
 These are from   
-`K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2019\Opsjon 3 biologi\Figurer og Kart (Dag)`  
+- 2019: `K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2019\Opsjon 3 biologi\Figurer og Kart (Dag)`   
+- 2020: `K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2020\Biologi - Opsjon 3\Rapportering\Kart og figurer, Dag` 
 ```{r}
+
+# Backup (for reproducibility)
+dir_data <- "Data_input/2021"    
+# Original (used in report):
+dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
+filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
+
 df_stations_all <- read_excel(
-  "Data_input/2021/KartOgFigurgrunnlag_TilDag.xlsx", 
+  paste0(dir_data, "/", filename), 
   sheet = "Kartgrunnlag2020")
 df_stations_all <- df_stations_all[1:5]
 names(df_stations_all)[c(1,4,5)] <- c("Shortname", "Index_ecol", "Class_chem")
@@ -88,7 +96,7 @@ xtabs(~addNA(Stasjonstype) + addNA(Class_chem), df_stations)
 # readxl::excel_sheets("Data_input/2021/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx")
 
 df_index <- read_excel(
-  "Data_input/2021/KartOgFigurgrunnlag_TilDag.xlsx", 
+  paste0(dir_data, "/", filename), 
   na = "NA",
   col_types = c("text", rep("numeric", 3)),
   sheet = "Figurgrunnlag2020")
