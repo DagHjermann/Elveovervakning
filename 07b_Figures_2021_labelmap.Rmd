@@ -999,6 +999,8 @@ if (FALSE){
 
 ```{r}
 
+
+
 # Positions on scale 0 to 1 (of lower left corner)
 # These are strangely hard to set correctly
 
@@ -1021,40 +1023,50 @@ gg3b <- gg3a +
 
 # }
 
-gg4 <- ggdraw() +
-  draw_plot(gg3b, x = 0.15, y = 0, scale = 0.7)
-for (i in seq_along(gg_box)){
-  gg4 <- gg4 + draw_plot(
-    gg_box[[i]], 
-    x = box_pos$x[i], y = box_pos$y[i], 
-    width = box_dim$x_scale[i], height = box_dim$y_scale[i]
-    )
-}
-
-# gg5 <- gg4 + draw_plot(gg_legend, x = 0.15, y = 0.5, scale = 0.7)
-
-fn <- glue("Figures/test/07b_labelmap_nolegend.png")
-scale <- 1.5
-ggsave(fn, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
-
 #0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#
 #
 # **NOTE: Making the final combined plot in the separate script `07b_Figures_2020_labelmap_combine.R` **
 #
 #0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#
 
-if (save_plots){
+if (FALSE){
+  
+  gg4 <- ggdraw() +
+    draw_plot(gg3b, x = 0.15, y = 0, scale = 0.7)
+  for (i in seq_along(gg_box)){
+    gg4 <- gg4 + draw_plot(
+      gg_box[[i]], 
+      x = box_pos$x[i], y = box_pos$y[i], 
+      width = box_dim$x_scale[i], height = box_dim$y_scale[i]
+    )
+  }
+  
+  # gg5 <- gg4 + draw_plot(gg_legend, x = 0.15, y = 0.5, scale = 0.7)
+  
+  fn <- glue("Figures/test/07b_labelmap_nolegend.png")
+  scale <- 1.5
+  ggsave(fn, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+  
+  
+  # Save
   fn1 <- glue("{folder_fig}/07b_labelmap_nolegend.png")
   fn2 <- glue("{folder_fig}/07b_labelmap_nolegend_hi.png")
   scale <- 1.5
   ggsave(fn1, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
   ggsave(fn2, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 1000/scale)  
+  
+  
 }
+
+
+
+} 
 
 ```
 
 ### c. Make legend
 ```{r, fig.width = 9,fig.height = 6}
+
 
 gg3_for_legend <- gg3a +
   theme(  legend.position = c(.1, .5),
@@ -1078,6 +1090,8 @@ if (save_plots){
   dev.off()
 
 }
+
+
 
 ```
 
