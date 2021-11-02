@@ -3,7 +3,7 @@
 #
 # Collect ggplots in a single file 
 #
-# NOTE: must first run '07b_Figures_2021_labelmap.Rmd' through part 8 first  
+# NOTE: must first run '07c_Figures_2021_labelmap.Rmd' through part 8, plus Northern Norway part   
 #
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
@@ -32,7 +32,7 @@ scale <- 1.5
 # Tried to make function, but for some reason it doesn't work  
 # - so we just run those lines separately (after )
 #
-# plot_to_file <- function(ggobject, filename = "07b_test.png", scale = 1.5, res = 200){
+# plot_to_file <- function(ggobject, filename = "07c_test.png", scale = 1.5, res = 200){
 #   png(filename = filename, width = 18*scale, height = 25*scale, units = "cm", res = res)
 #   Sys.sleep(0.5)
 #   ggobject
@@ -53,12 +53,12 @@ ggcomb <- ggdraw() +
   draw_plot(gg3b, x = -0.20, y = -0.17, scale = 0.8)
 
 # Plot to file
-png(filename = "07b_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07b_test1.png')
+plt <- image_read('07c_test1.png')
 print(plt)
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -73,12 +73,12 @@ ggcomb <- ggdraw() +
   draw_plot(gg1_north, x = 0, y = 1.36, vjust = 1, scale = 0.55)
 
 # Plot to file
-png(filename = "07b_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07b_test1.png')
+plt <- image_read('07c_test1.png')
 print(plt)
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -95,12 +95,12 @@ ggcomb <- ggdraw() +
 
 # Plot to file
 scale <- 1.5
-png(filename = "07b_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07b_test1.png')
+plt <- image_read('07c_test1.png')
 print(plt)
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -133,14 +133,14 @@ for (i in seq_along(gg_box)){
 
 # Plot to file
 scale <- 1.5
-png(filename = "07b_test2.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test2.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 beepr::beep(3)
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07b_test2.png')
+plt <- image_read('07c_test2.png')
 print(plt)
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -179,14 +179,14 @@ for (i in seq_along(gg_box)){
 
 # Plot to file
 scale <- 1.5
-png(filename = "07b_test2.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test2.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 beepr::beep(2)
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07b_test2.png')
+plt <- image_read('07c_test2.png')
 print(plt)
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -199,12 +199,12 @@ ggcomb <- ggdraw() +
   draw_plot(gg_legend, x = -0.2, y = 1.36, hjust = 0, vjust = 1, scale = 0.55)
 
 # Plot to file
-png(filename = "07b_test3.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test3.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07b_test3.png')
+plt <- image_read('07c_test3.png')
 print(plt)
 
 
@@ -243,18 +243,18 @@ for (i in seq_along(gg_box)){
 
 # Plot to file
 scale <- 1.5
-png(filename = "07b_test4.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test4.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 beepr::beep(2)
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07b_test4.png')
+plt <- image_read('07c_test4.png')
 print(plt)
 
 # IF HAPPY, run next line
-# file.copy('07b_test4.png', glue("{folder_fig}/07b_labelmap_complete.png"))
+# file.copy('07c_test4.png', glue("{folder_fig}/07c_labelmap_complete.png"))
 
 
 
