@@ -1087,6 +1087,12 @@ if (FALSE){
 All stations, and labels for stations outside inset boxes
 ```{r, fig.width=8, fig.height=10}
 
+#
+# Width and height of pies
+#   
+df_pies_north$width = 20E3    # Sets size of pies
+df_pies_north$height = 20E3   
+
 
 gg2_north <- gg1_back_north +
   # only on label map, not in quality map:
@@ -1095,7 +1101,6 @@ gg2_north <- gg1_back_north +
   #   aes(shape = Stasjonstype, fill = Stasjonstype)) +
   # scale_fill_brewer(palette = "Set1") +
   # scale_shape_manual(values = c(21,22,24)) +
-  theme(legend.position = "none") +
   geom_text_left(
     aes(label = Shortname), 
     data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("50","51","52")),
@@ -1144,3 +1149,4 @@ if (save_plots)
 gg2_north
 
 ``` 
+
