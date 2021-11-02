@@ -225,7 +225,8 @@ plt_with_legend <- image_composite(plt, plt_legend_scale, offset = "+280+200")
 image_write(plt_with_legend, path = "07c_test4.png", format = "png")
 
 
-# file.copy("07c_test4.png", "Figures/2021_main/07c_qualitymap_complete.jpg")
+# If happy with the result:
+# file.copy("07c_test4.png", "Figures/2021_main/07c_qualitymap_complete.png")
 
 
 
