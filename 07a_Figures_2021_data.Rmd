@@ -75,8 +75,8 @@ df_stations <- df_stations_all %>%
   mutate(
     Stasjonstype = case_when(
       !is.na(Index_ecol) & is.na(Class_chem) ~ "Økologisk tilstand",
-      !is.na(Index_ecol) & Class_chem %in% "i.d." ~ "Økologisk tilstand",
-      !is.na(Index_ecol) & Class_chem != "i.d." ~ "Økologisk og kjemisk tilstand",
+      !is.na(Index_ecol) & Class_chem %in% c("i.d.", "ID") ~ "Økologisk tilstand",
+      !is.na(Index_ecol) & Class_chem != c("i.d.", "ID") ~ "Økologisk og kjemisk tilstand",
       grepl("^Gruve", Shortname) ~ "Gruvevassdrag (lange tidsserier)",
       TRUE ~ "?"),
     Stasjonstype = factor(Stasjonstype, 
