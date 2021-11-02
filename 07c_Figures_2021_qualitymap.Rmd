@@ -30,8 +30,8 @@ Code overview
 # Save figures to file, or just show them in this report?
 #
 
-save_plots <- TRUE
-# save_plots <- FALSE
+# save_plots <- TRUE
+save_plots <- FALSE
 
 
 #
@@ -191,7 +191,7 @@ df_counties_all <- st_coordinates(map_counties_utm33) %>%
 
 ```
 
-### c. Make background map (gg_back)    
+### c. Make background map (gg1_back)    
 ```{r}
 
 # Check counties: it turns out that 5 = Nordland, 10 = Troms + Finnmark
@@ -212,8 +212,8 @@ df_counties <- df_counties_all %>%
 # Get remaining county numbers
 county_numbers <- unique(df_counties$id)
 
-# Start 'gg_back'
-gg_back <- ggplot(data = df_counties, aes(x, y)) + 
+# Start 'gg1_back'
+gg1_back <- ggplot(data = df_counties, aes(x, y)) + 
   geom_blank() + 
   coord_fixed() +
   theme_minimal() +
@@ -225,19 +225,19 @@ gg_back <- ggplot(data = df_counties, aes(x, y)) +
 
 # Add one county after the other
 for (i in county_numbers){
-  gg_back <- gg_back + 
+  gg1_back <- gg1_back + 
     geom_polygon(data = df_counties %>% filter(L1 == 1 & id %in% i), 
                  aes(x, y, group = group), fill = "navajowhite", color = "grey30")
 }
 
 # For adjusting limits:
-ggdata <- layer_data(gg_back)
+ggdata <- layer_data(gg1_back)
 
-gg_back
+gg1_back
 
 # test use of ggdata
 if (FALSE)
-  gg_back + ylim(range(ggdata$y) + c(-100E3, 0))
+  gg1_back + ylim(range(ggdata$y) + c(-100E3, 0))
 
 ```
 
@@ -339,11 +339,12 @@ df_lakes_mjosa <- df_lakes %>% filter(group == 3462)
 ## 3. Make pies  
 
 ### a. Start making 'df_pies'  
-Also writes df_stations_vf to excel (later manipulated semi-manually and used in part 6)   
+Also writes df_stations_vf to excel (later manipulated semi-manually and used in part 6)    
+- Note that we use 'df_stations_all', i.e. also include the Northern ones   
 ```{r}
 
 # Start with location data on Vannforekomst-level
-df_pies <- df_stations %>%
+df_pies_all <- df_stations_all %>%
   left_join(df_index_barplot %>% select(Rapportnavn, nEQR_ecol_klasse),
             by = c("Shortname" = "Rapportnavn")) %>%
   rename(Class_ecol = nEQR_ecol_klasse)
@@ -360,14 +361,14 @@ df_pies <- df_stations %>%
 # class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
 
 
-df_pies <- df_pies %>%
+df_pies_all <- df_pies_all %>%
   left_join(
     df_colors %>% select(Status_no, Class_color),
     by = c("Class_ecol" = "Status_no")
   ) %>%
   rename(Colour_ecol = Class_color)  
 
-ggplot(df_pies, aes(Class_ecol, Index_ecol, fill = Class_ecol)) + 
+ggplot(df_pies_all, aes(Class_ecol, Index_ecol, fill = Class_ecol)) + 
   geom_point(shape = 21, size = 2) +
   scale_fill_manual(values = class_colors, drop = FALSE) +
   theme(panel.background = element_rect(fill = "grey70"), panel.grid = element_blank())
@@ -377,7 +378,7 @@ ggplot(df_pies, aes(Class_ecol, Index_ecol, fill = Class_ecol)) +
 ### c. Chemical class, levels and colors    
 ```{r}
 
-df_pies <- df_pies %>%
+df_pies_all <- df_pies_all %>%
   mutate(
     Colour_chem = case_when(
       is.na(Class_chem) ~ class_colors["Uklassifisert"],
@@ -390,12 +391,12 @@ df_pies <- df_pies %>%
 
 ```
 
-### d. Make pies from data frame 'df_pies', and add to 'df_pies'
+### d. Make pies from data frame 'df_pies_all', and add to 'df_pies_all'
 ```{r, fig.width=3, fig.height=3}      
 
 # Function - make pie for line number i
 make_pie_linenumber_indexvalues <- function(i){
-  df <- df_pies[i, c("Colour_ecol", "Colour_chem")]
+  df <- df_pies_all[i, c("Colour_ecol", "Colour_chem")]
   make_pie_from_colours(as.character(df))
 }
 
@@ -406,31 +407,31 @@ make_pie_linenumber_indexvalues(3)
 
 # test - should make 3 plots with one pie in each  
 if (FALSE){
-  grep("GLO1", df_pies$Shortname) %>% make_pie_linenumber_indexvalues()
-  grep("GLO3", df_pies$Shortname) %>% make_pie_linenumber_indexvalues()
-  grep("ORR1", df_pies$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("GLO1", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("GLO3", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("ORR1", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
 }
 
 # Make all pies (a list)
-pies <- 1:nrow(df_pies) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
+pies <- 1:nrow(df_pies_all) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
 length(pies)
 # check:
 # pies[[1]]
 
 # Add pies to dataframe (as a list column)
-df_pies$pie = pies
+df_pies_all$pie = pies
 # check:
-# df_pies$pie[1]
+# df_pies_all$pie[1]
 
-# df <- df_pies %>% filter(!Shortname %in% c(group1, group2a, group2b))
+# df <- df_pies_all %>% filter(!Shortname %in% c(group1, group2a, group2b))
 # df$pie[1]
 
 ```
 
 ### e. Test  
 ```{r}
-gg <- gg_back +
-  geom_point(data = df_pies[c(1,5,10),], aes(x = x, y = y))
+gg <- gg1_back +
+  geom_point(data = df_pies_all[c(1,5,10, 48),], aes(x = x, y = y))
 gg
 
 ```
@@ -439,6 +440,10 @@ gg
 
 ### a. Plot without labels  
 ```{r}
+
+# Pick only the ones in Southern Norway  
+df_pies <- df_pies_all %>%
+  filter(Lat < 65)
 
 #
 # Width and height of pies
@@ -459,7 +464,7 @@ for (i in unique(box_polygons$boxnumber)){
     )
 }
 
-gg1 <- gg_back +
+gg1 <- gg1_back +
   geom_subview(data = df_pies_outside, 
                aes(x = x, y = y, subview = pie, width = width, height = height)
                )
@@ -473,7 +478,7 @@ if (save_plots){
 
 ```
 
-### a. Build gg2 plot   
+### a. Build gg2_points plot   
 * Includes labels and rivers   
 NOTE: The less frustrating way to build this code is to code in an ordinary R script (e.g.,  '07_Figures_2020_testmap.R')   
 * Easier to 'try and fail' when the plot is made in a separate window    
@@ -497,9 +502,9 @@ group6 <- c("04", "05", "06")               # right
 group7 <- c("01","02","03")    # left
 
 # For setting ylim:
-ggdata <- layer_data(gg_back)
+ggdata <- layer_data(gg1_back)
 
-gg2 <- gg_back +
+gg2_points <- gg1_back +
   geom_path(data = df_rivers_strahler7,
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes_mjosa,
@@ -581,12 +586,12 @@ gg2 <- gg_back +
   xlim(range(ggdata$x) + c(-50E3, 50E3)) +  
   ylim(range(ggdata$y) + c(-50E3, 0))   
 
-# gg2
+# gg2_points
 
 if (save_plots){
   fn <- glue("{folder_fig}/07c_qualitymap_outside_boxes2.png")
   scale <- 1.5
-  ggsave(fn, gg2, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+  ggsave(fn, gg2_points, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
 }
 
 ```
@@ -609,13 +614,13 @@ box_letter_pos
 #
 # Add boxes and letters
 #
-gg3 <- gg2 +
+gg3a <- gg2_points +
   geom_polygon(data = box_polygons, aes(group = boxnumber),
                fill = NA, colour = "red3", size = rel(1.5)) +
   geom_text(data = box_letter_pos, aes(label = letter), 
             size = rel(8), colour = "red3", hjust = 0, vjust = 1) 
 
-# gg3
+# gg3a
 
 ```
 
@@ -694,7 +699,7 @@ i <- 1
 
 box <- box_polygons %>% filter(boxnumber == i)
 data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
-gg_box[[i]] <- gg_back +
+gg_box[[i]] <- gg1_back +
   geom_path(data = df_rivers_strahler5, 
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes, 
@@ -738,7 +743,7 @@ i <- 2
 
 box <- box_polygons %>% filter(boxnumber == i)
 data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
-gg_box[[i]] <- gg_back +
+gg_box[[i]] <- gg1_back +
   geom_path(data = df_rivers_strahler5, 
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes, 
@@ -779,7 +784,7 @@ i <- 3
 
 box <- box_polygons %>% filter(boxnumber == i)
 data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
-gg_box[[i]] <- gg_back +
+gg_box[[i]] <- gg1_back +
   geom_path(data = df_rivers_strahler5, 
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes, 
@@ -827,7 +832,7 @@ i <- 4
 
 box <- box_polygons %>% filter(boxnumber == i)
 data_box[[i]] <- qualplot_make_data_box(i, box, df_pies)
-gg_box[[i]] <- gg_back +
+gg_box[[i]] <- gg1_back +
   geom_path(data = df_rivers_strahler5, 
             aes(group = group), col = rivercol) +
   geom_polygon(data = df_lakes, 
@@ -857,46 +862,386 @@ gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
 ```
 
 
-## 6. Final map
+## 6. Final map   
+**NOTE: Making the final combined plot in the separate script `07b_Figures_2020_labelmap_combine.R` **
 ```{r}
 
-# Positions on scale 0 to 1 (of lower left corner)
-# Copied from 07b 2021 version
-box_pos <- tibble::tribble(
-  ~x,    ~y,
-  0.78,  0.15,
-  0.19,  0.551,
-  0.19,  0.291,  # 
-  0.19,  0.15
-)
+# **NOTE: Making the final combined plot in the separate script `07b_Figures_2020_qualitymap_combine.R` **
 
-# Size, given on scale 0 to 1 
-# box_dim$x[2] = 0.3 in size:
-box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
-box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
-
-# Start plot (everything except the insets)
-gg4 <- ggdraw() +
-  draw_plot(gg3, x = 0.15, y = 0, scale = 0.7)
-
-# Add
-for (i in seq_along(gg_box)){
-  gg4 <- gg4 + draw_plot(
-    gg_box[[i]], 
-    x = box_pos$x[i], y = box_pos$y[i], 
-    width = box_dim$x_scale[i], height = box_dim$y_scale[i]
+if (FALSE){
+  
+  
+  # Positions on scale 0 to 1 (of lower left corner)
+  # Copied from 07b 2021 version
+  box_pos <- tibble::tribble(
+    ~x,    ~y,
+    0.78,  0.15,
+    0.19,  0.551,
+    0.19,  0.291,  # 
+    0.19,  0.15
+  )
+  
+  # Size, given on scale 0 to 1 
+  # box_dim$x[2] = 0.3 in size:
+  box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
+  box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
+  
+  # Start plot (everything except the insets)
+  gg4 <- ggdraw() +
+    draw_plot(gg3a, x = 0.15, y = 0, scale = 0.7)
+  
+  # Add
+  for (i in seq_along(gg_box)){
+    gg4 <- gg4 + draw_plot(
+      gg_box[[i]], 
+      x = box_pos$x[i], y = box_pos$y[i], 
+      width = box_dim$x_scale[i], height = box_dim$y_scale[i]
     )
   }
+  
+  if (save_plots){
+    fn1 <- glue("{folder_fig}/07c_qualitymap_complete.png")
+    fn2 <- glue("{folder_fig}/07c_qualitymap_complete_hi.png")
+    # fn <- glue("{folder_fig}/07c_qualitymap_TEST.png")
+    scale <- 1.5
+    ggsave(fn1, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+    ggsave(fn2, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 1000/scale)  
+  }
+  
+  
+  
+
+```
+
+
+## 7. Northern part  
+
+### a1. Stations, add UTM coordinates
+```{r}
+
+# Pick only the ones in Southern Norway  
+df_pies_north <- df_pies_all %>%
+  filter(Lat >= 65)
+
+```
+
+
+### a2. background  
+```{r}
+
+# Check counties: it turns out that 5 = Nordland, 10 = Troms + Finnmark
+df_counties2 <- df_counties_all %>%
+  filter(id %in% 10)
+
+# Get county numbers
+county_numbers <- unique(df_counties2$id)
+
+# Start 'gg1_back_north'
+gg1_back_north <- ggplot(data = df_counties2, aes(x, y)) + 
+  geom_blank() + 
+  coord_fixed(xlim = range(df_counties2$x), ylim = range(df_counties2$y)) +
+  theme_minimal() +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        )
+
+# Add one county after the other
+for (i in county_numbers){
+  gg1_back_north <- gg1_back_north + 
+    geom_polygon(data = df_counties2 %>% filter(L1 == 1 & id %in% i), 
+                 aes(x, y, group = group), fill = "navajowhite", color = "grey30")
+}
+
+gg1_back_north <- gg1_back_north  +
+  geom_path(data = df_rivers_strahler6, 
+            aes(group = group), col = rivercol) # +
+  # geom_polygon(data = df_lakes, 
+  #              aes(group = group), col = rivercol, fill = rivercol)
+
+# For adjusting limits:
+ggdata <- layer_data(gg1_back_north)
+
+gg1_back_north
+
+# test use of ggdata
+if (FALSE)
+  gg1_back_north + ylim(range(ggdata$y) + c(-100E3, 0))
+
+```
+```{r}
+
+
+#
+# Width and height of pies
+#   
+df_pies_north$width = 20E3    # Sets size of pies
+df_pies_north$height = 20E3   
+
+gg2_north <- gg1_back_north +
+  # Everythng below is copied to 07c for making the pie map 
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("50","51","52")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("47","48","49")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("44","45","46")),
+    xdist = 20E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("42","43")),
+    xdist = 27E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = 15E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("40","41")),
+    xdist = 14E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_subview(data = df_pies_north, 
+               aes(x = x, y = y, subview = pie, width = width, height = height)
+               )
+# gg
+gg2_north
+
+# if (save_plots){
+#   fn <- glue("{folder_fig}/07c_qualitymap_outside_boxes1.png")
+#   scale <- 1.5
+#   ggsave(fn, gg1, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
+# }
+
+
+```
+
+### a. Build gg2_north plot     
+* Includes labels and rivers   
+```{r, fig.width=8, fig.height=10}
+
+gg2_north <- gg1_back_north +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(grepl("OTR", Shortname)), 
+    xdist = 30E3, xadj_start = 7E3, 
+    y_even_dist = 20E3, order = "N to S",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4a1), 
+    xdist = 30E3, xadj_start = 7E3, 
+    y_even_dist = 20E3, order = "N to S",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4a2), 
+    xdist = 30E3, xadj_start = 7E3, 
+    y_even_dist = 20E3, order = "N to S", y_even_pos = -30E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4b), 
+    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = 50E3, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4c), 
+    xdist = 30E3, xadj_start = 7E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group5), 
+    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = 20E3, 
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6), 
+    xdist = 30E3, xadj_start = 7E3, y_even_dist = 20E3, 
+    order = "N to S",
+    color = "blue3", segment.color = "blue3") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations %>% filter(substr(Shortname,1,2) %in% group7), 
+    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = -5E3, 
+    color = "blue3", segment.color = "blue3") +
+  # only in quality map, not label map:
+  geom_subview(data = df_pies %>% filter(!Shortname %in% c(group1, group2a, group2b)), 
+               aes(x = x, y = y, subview = pie, width = width, height = height)) +
+  xlim(range(ggdata$x) + c(-50E3, 50E3)) +  
+  ylim(range(ggdata$y) + c(-50E3, 0))   
+
+# gg2_north
 
 if (save_plots){
-  fn1 <- glue("{folder_fig}/07c_qualitymap_complete.png")
-  fn2 <- glue("{folder_fig}/07c_qualitymap_complete_hi.png")
+  fn1 <- glue("{folder_fig}/07c_qualitymap_nnorway.png")
+  fn2 <- glue("{folder_fig}/07c_qualitymap_nnorway_hi.png")
   # fn <- glue("{folder_fig}/07c_qualitymap_TEST.png")
   scale <- 1.5
-  ggsave(fn1, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
-  ggsave(fn2, gg4, width = 18*scale, height = 25*scale, units = "cm", dpi = 1000/scale)  
+  ggsave(fn1, gg2_north, width = 15*scale, height = 11*scale, units = "cm", dpi = 500/scale)  
+  ggsave(fn2, gg2_north, width = 15*scale, height = 11*scale, units = "cm", dpi = 1000/scale)  
 }
 
 ```
 
 
+
+### b. Plot using repel     
+All stations, and labels for stations outside inset boxes
+```{r, fig.width=8, fig.height=10}
+
+
+
+gg1 <- gg1_back_north +
+  geom_point(
+    data = df_stations_north, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  theme(  legend.position = c(.05, .95),
+          legend.justification = c("left", "top"),
+          legend.box.just = "left",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
+  geom_label_repel(
+    data = df_stations_north, 
+    aes(label = Shortname, shape = Stasjonstype), color = "blue3", 
+    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 50000, box_padding = 0.5,
+    point_padding = 0.5)
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_nnorway_rough.png", gg1, 
+          width = 9, height = 6)
+
+gg1
+
+```
+
+
+### c. Test code used to select label positions
+```{r}
+
+df_extent <- tibble(
+  x = c(range(ggdata$x), rev(range(ggdata$x))),
+  y = rep(range(ggdata$y), each = 2))
+
+if (FALSE){
+  
+  ggplot(df_extent, aes(x,y)) +
+    geom_polygon(fill = "grey85") +
+    geom_point(
+      data = df_stations_north, 
+      aes(x = x, y = y, shape = Stasjonstype)) +
+    geom_text_right(
+      aes(label = Shortname), 
+      data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("50","51","52")),
+      xdist = 10E3, 
+      same_x = TRUE, xadj_start = 900, 
+      y_even_dist = 20E3,
+      color = "blue3", segment.color = "blue3") +
+    geom_text_right(
+      aes(label = Shortname), 
+      data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("47","48","49")),
+      xdist = 10E3, 
+      same_x = TRUE, xadj_start = 900, 
+      y_even_dist = 20E3,
+      color = "blue3", segment.color = "blue3") +
+    geom_text_right(
+      aes(label = Shortname), 
+      data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("44","45","46")),
+      xdist = 20E3, 
+      same_x = TRUE, xadj_start = 900, 
+      y_even_dist = 20E3, y_even_pos = -20E3,
+      color = "blue3", segment.color = "blue3") +
+    geom_text_right(
+      aes(label = Shortname), 
+      data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("42","43")),
+      xdist = 10E3, 
+      same_x = TRUE, xadj_start = 900, 
+      y_even_dist = 20E3, y_even_pos = 30E3,
+      color = "blue3", segment.color = "blue3") +
+    geom_text_right(
+      aes(label = Shortname), 
+      data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("40","41")),
+      xdist = 20E3, 
+      same_x = TRUE, xadj_start = 900, 
+      y_even_dist = 20E3, y_even_pos = -20E3,
+      color = "blue3", segment.color = "blue3")
+  
+}
+
+
+```
+
+### d. Plot using code above       
+All stations, and labels for stations outside inset boxes
+```{r, fig.width=8, fig.height=10}
+
+
+gg1 <- gg1_back_north +
+  geom_point(
+    data = df_stations_north, 
+    aes(shape = Stasjonstype, fill = Stasjonstype)) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_shape_manual(values = c(21,22,24)) +
+  theme(legend.position = "none") +
+  geom_text_left(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("50","51","52")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("47","48","49")),
+    xdist = 10E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("44","45","46")),
+    xdist = 20E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("42","43")),
+    xdist = 27E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = 15E3,
+    color = "blue3", segment.color = "blue3") +
+  geom_text_right(
+    aes(label = Shortname), 
+    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("40","41")),
+    xdist = 14E3, 
+    same_x = TRUE, xadj_start = 900, 
+    y_even_dist = 14E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3")
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_nnorway.png", gg1, 
+          width = 9, height = 6)
+
+gg1
+
+``` 
