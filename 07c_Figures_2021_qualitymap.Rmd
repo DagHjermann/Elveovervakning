@@ -115,6 +115,8 @@ pie(rep(1,6),
 class_colors <- df_colors$Class_color
 names(class_colors) <- df_colors$Status_no
 
+
+
 ```
 
 ## 2. Data   
@@ -866,40 +868,42 @@ gg_box[[i]] <- qualplot_add_pies(gg_box[[i]], data_box[[i]], box, i)
 **NOTE: Making the final combined plot in the separate script `07b_Figures_2020_labelmap_combine.R` **
 ```{r}
 
-# **NOTE: Making the final combined plot in the separate script `07b_Figures_2020_qualitymap_combine.R` **
+
+
+# Positions on scale 0 to 1 (of lower left corner)
+# Copied from 07b 2021 version
+box_pos <- tibble::tribble(
+  ~x,    ~y,
+  0.78,  0.15,
+  0.19,  0.551,
+  0.19,  0.291,  # 
+  0.19,  0.15
+)
+
+# Size, given on scale 0 to 1 
+# box_dim$x[2] = 0.3 in size:
+box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
+box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
+
+# Start plot (everything except the insets)
+gg3b <- ggdraw() +
+  draw_plot(gg3a, x = 0.15, y = 0, scale = 0.7)
+
+#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#
+#
+# **NOTE: Making the final combined plot in the separate script `07c_Figures_2020_qualitymap_combine.R` **
+#
+#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#
 
 if (FALSE){
   
-  
-  # Positions on scale 0 to 1 (of lower left corner)
-  # Copied from 07b 2021 version
-  box_pos <- tibble::tribble(
-    ~x,    ~y,
-    0.78,  0.15,
-    0.19,  0.551,
-    0.19,  0.291,  # 
-    0.19,  0.15
-  )
-  
-  # Size, given on scale 0 to 1 
-  # box_dim$x[2] = 0.3 in size:
-  box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
-  box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
-  
-  # Start plot (everything except the insets)
-  gg4 <- ggdraw() +
-    draw_plot(gg3a, x = 0.15, y = 0, scale = 0.7)
-  
   # Add
   for (i in seq_along(gg_box)){
-    gg4 <- gg4 + draw_plot(
+    gg4 <- gg3b + draw_plot(
       gg_box[[i]], 
       x = box_pos$x[i], y = box_pos$y[i], 
       width = box_dim$x_scale[i], height = box_dim$y_scale[i]
     )
-  }
-  
-  if (save_plots){
     fn1 <- glue("{folder_fig}/07c_qualitymap_complete.png")
     fn2 <- glue("{folder_fig}/07c_qualitymap_complete_hi.png")
     # fn <- glue("{folder_fig}/07c_qualitymap_TEST.png")
@@ -909,10 +913,28 @@ if (FALSE){
   }
   
   
+}
+
   
 
 ```
 
+```{r}
+
+gg3_for_legend <- gg3a +
+  theme(  legend.position = c(.1, .5),
+          legend.justification = c("left", "bottom"),
+          legend.box.just = "right",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  )
+
+gg_legend <- get_legend(gg3_for_legend)
+
+```
 
 ## 7. Northern part  
 
@@ -970,135 +992,6 @@ if (FALSE)
   gg1_back_north + ylim(range(ggdata$y) + c(-100E3, 0))
 
 ```
-```{r}
-
-
-#
-# Width and height of pies
-#   
-df_pies_north$width = 20E3    # Sets size of pies
-df_pies_north$height = 20E3   
-
-gg2_north <- gg1_back_north +
-  # Everythng below is copied to 07c for making the pie map 
-  geom_text_left(
-    aes(label = Shortname), 
-    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("50","51","52")),
-    xdist = 10E3, 
-    same_x = TRUE, xadj_start = 900, 
-    y_even_dist = 14E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("47","48","49")),
-    xdist = 10E3, 
-    same_x = TRUE, xadj_start = 900, 
-    y_even_dist = 14E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("44","45","46")),
-    xdist = 20E3, 
-    same_x = TRUE, xadj_start = 900, 
-    y_even_dist = 14E3, y_even_pos = -20E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("42","43")),
-    xdist = 27E3, 
-    same_x = TRUE, xadj_start = 900, 
-    y_even_dist = 14E3, y_even_pos = 15E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("40","41")),
-    xdist = 14E3, 
-    same_x = TRUE, xadj_start = 900, 
-    y_even_dist = 14E3, y_even_pos = -20E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_subview(data = df_pies_north, 
-               aes(x = x, y = y, subview = pie, width = width, height = height)
-               )
-# gg
-gg2_north
-
-# if (save_plots){
-#   fn <- glue("{folder_fig}/07c_qualitymap_outside_boxes1.png")
-#   scale <- 1.5
-#   ggsave(fn, gg1, width = 18*scale, height = 25*scale, units = "cm", dpi = 500/scale)  
-# }
-
-
-```
-
-### a. Build gg2_north plot     
-* Includes labels and rivers   
-```{r, fig.width=8, fig.height=10}
-
-gg2_north <- gg1_back_north +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(grepl("OTR", Shortname)), 
-    xdist = 30E3, xadj_start = 7E3, 
-    y_even_dist = 20E3, order = "N to S",
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4a1), 
-    xdist = 30E3, xadj_start = 7E3, 
-    y_even_dist = 20E3, order = "N to S",
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4a2), 
-    xdist = 30E3, xadj_start = 7E3, 
-    y_even_dist = 20E3, order = "N to S", y_even_pos = -30E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4b), 
-    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = 50E3, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(substr(Shortname,1,2) %in% group4c), 
-    xdist = 30E3, xadj_start = 7E3,
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(substr(Shortname,1,2) %in% group5), 
-    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = 20E3, 
-    color = "blue3", segment.color = "blue3") +
-  geom_text_right(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(substr(Shortname,1,2) %in% group6), 
-    xdist = 30E3, xadj_start = 7E3, y_even_dist = 20E3, 
-    order = "N to S",
-    color = "blue3", segment.color = "blue3") +
-  geom_text_left(
-    aes(label = Shortname), 
-    data = df_stations %>% filter(substr(Shortname,1,2) %in% group7), 
-    xdist = 40E3, xadj_start = 7E3, y_even_dist = 20E3, y_even_pos = -5E3, 
-    color = "blue3", segment.color = "blue3") +
-  # only in quality map, not label map:
-  geom_subview(data = df_pies %>% filter(!Shortname %in% c(group1, group2a, group2b)), 
-               aes(x = x, y = y, subview = pie, width = width, height = height)) +
-  xlim(range(ggdata$x) + c(-50E3, 50E3)) +  
-  ylim(range(ggdata$y) + c(-50E3, 0))   
-
-# gg2_north
-
-if (save_plots){
-  fn1 <- glue("{folder_fig}/07c_qualitymap_nnorway.png")
-  fn2 <- glue("{folder_fig}/07c_qualitymap_nnorway_hi.png")
-  # fn <- glue("{folder_fig}/07c_qualitymap_TEST.png")
-  scale <- 1.5
-  ggsave(fn1, gg2_north, width = 15*scale, height = 11*scale, units = "cm", dpi = 500/scale)  
-  ggsave(fn2, gg2_north, width = 15*scale, height = 11*scale, units = "cm", dpi = 1000/scale)  
-}
-
-```
-
 
 
 ### b. Plot using repel     
@@ -1195,12 +1088,13 @@ All stations, and labels for stations outside inset boxes
 ```{r, fig.width=8, fig.height=10}
 
 
-gg1 <- gg1_back_north +
-  geom_point(
-    data = df_stations_north, 
-    aes(shape = Stasjonstype, fill = Stasjonstype)) +
-  scale_fill_brewer(palette = "Set1") +
-  scale_shape_manual(values = c(21,22,24)) +
+gg2_north <- gg1_back_north +
+  # only on label map, not in quality map:
+  # geom_point(
+  #   data = df_stations_north, 
+  #   aes(shape = Stasjonstype, fill = Stasjonstype)) +
+  # scale_fill_brewer(palette = "Set1") +
+  # scale_shape_manual(values = c(21,22,24)) +
   theme(legend.position = "none") +
   geom_text_left(
     aes(label = Shortname), 
@@ -1226,22 +1120,27 @@ gg1 <- gg1_back_north +
   geom_text_right(
     aes(label = Shortname), 
     data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("42","43")),
-    xdist = 27E3, 
+    xdist = 38E3, 
     same_x = TRUE, xadj_start = 900, 
-    y_even_dist = 14E3, y_even_pos = 15E3,
+    y_even_dist = 16E3, y_even_pos = 25E3,
     color = "blue3", segment.color = "blue3") +
   geom_text_right(
     aes(label = Shortname), 
     data = df_stations_north %>% filter(substr(Shortname,1,2) %in% c("40","41")),
     xdist = 14E3, 
     same_x = TRUE, xadj_start = 900, 
-    y_even_dist = 14E3, y_even_pos = -20E3,
-    color = "blue3", segment.color = "blue3")
+    y_even_dist = 16E3, y_even_pos = -20E3,
+    color = "blue3", segment.color = "blue3") +
+  # only in quality map, not label map:
+  geom_subview(data = df_pies_north %>% filter(!Shortname %in% c(group1, group2a, group2b)), 
+               aes(x = x, y = y, subview = pie, width = width, height = height)) +
+  xlim(range(ggdata$x) + c(-50E3, 50E3)) +  
+  ylim(range(ggdata$y) + c(-50E3, 0))   
 
 if (save_plots)
   ggsave2("{folder_fig}/07b_labelmap_nnorway.png", gg1, 
           width = 9, height = 6)
 
-gg1
+gg2_north
 
 ``` 
