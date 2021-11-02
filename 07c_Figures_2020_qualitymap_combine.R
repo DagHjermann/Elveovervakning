@@ -5,6 +5,9 @@
 #
 # NOTE: must first run '07c_Figures_2021_labelmap.Rmd' through part 8, plus Northern Norway part   
 #
+# Figures later moved to 
+# C:\Data\seksjon 318\Elveovervakning\Figures\2021_main\test
+#
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
 # parameters in draw_plot() are to some degree set on a trial-and-error basis 
@@ -65,12 +68,12 @@ print(plt)
 #
 # N.Norway (Finnmark) only ----
 #
-# gg1_north
+# gg2_north
 #
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
 ggcomb <- ggdraw() +
-  draw_plot(gg1_north, x = 0, y = 1.36, vjust = 1, scale = 0.55)
+  draw_plot(gg2_north, x = 0, y = 1.36, vjust = 1, scale = 0.55)
 
 # Plot to file
 png(filename = "07c_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
@@ -85,22 +88,22 @@ print(plt)
 #
 # Main + N.Norway ----
 #
-# gg3b + gg1_north
+# gg3b + gg2_north
 #
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
 ggcomb <- ggdraw() +
-  draw_plot(gg3b, x = -0.20, y = -0.17, scale = 0.8) +
-  draw_plot(gg1_north, x = 0.1, y = 1.36, vjust = 1, scale = 0.55)
+  draw_plot(gg3b, x = -0.35, y = -0.15, scale = 1.12) +
+  draw_plot(gg2_north, x = 0.15, y = 1.32, vjust = 1, scale = 0.63)
 
 # Plot to file
 scale <- 1.5
-png(filename = "07c_test1.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
+png(filename = "07c_test1a.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
 ggcomb
 dev.off()
 
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07c_test1.png')
+plt <- image_read('07c_test1a.png')
 print(plt)
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -137,7 +140,7 @@ png(filename = "07c_test2.png", width = 18*scale, height = 25*scale, units = "cm
 ggcomb
 dev.off()
 
-beepr::beep(3)
+# beepr::beep(3)
 
 # wait until "Plot to file" is finished until you plot the next
 plt <- image_read('07c_test2.png')
@@ -147,7 +150,7 @@ print(plt)
 #
 # Main + N.Norway + boxes ----
 #
-# gg3b + gg1_north
+# gg3b + gg2_north
 #
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
@@ -167,8 +170,8 @@ box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
 
 # Make ggcomb
 ggcomb <- ggdraw() +
-  draw_plot(gg3b, x = -0.20, y = -0.17, scale = 0.8) +
-  draw_plot(gg1_north, x = 0.2, y = 1.36, vjust = 1, scale = 0.60)
+  draw_plot(gg3b, x = -0.35, y = -0.15, scale = 1.12) +
+  draw_plot(gg2_north, x = 0.15, y = 1.32, vjust = 1, scale = 0.63)
 for (i in seq_along(gg_box)){
   ggcomb <- ggcomb + draw_plot(
     gg_box[[i]], 
@@ -183,7 +186,7 @@ png(filename = "07c_test2.png", width = 18*scale, height = 25*scale, units = "cm
 ggcomb
 dev.off()
 
-beepr::beep(2)
+# beepr::beep(2)
 
 # wait until "Plot to file" is finished until you plot the next
 plt <- image_read('07c_test2.png')
@@ -195,17 +198,13 @@ print(plt)
 #
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
-ggcomb <- ggdraw() +
-  draw_plot(gg_legend, x = -0.2, y = 1.36, hjust = 0, vjust = 1, scale = 0.55)
+if (FALSE){
+  # cropping legend made in powerpoint (ONLY DO THIS ONCE)
+  plt <- image_read('Qualitymap_2021_legend.png')
+  plt_cropped <- image_trim(plt)
+  image_write(plt_cropped, path = "Qualitymap_2021_legend_cropped.png", format = "png")
+}
 
-# Plot to file
-png(filename = "07c_test3.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
-ggcomb
-dev.off()
-
-# wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07c_test3.png')
-print(plt)
 
 
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
@@ -214,47 +213,19 @@ print(plt)
 #
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 
-# Set box_pos and x_scale/y_scale
-box_pos <- tibble::tribble(
-  ~x,    ~y,
-  0.78,  0.15 -0.10,
-  0.6,  0.551 -0.10,
-  0.6,  0.291 -0.10,  # 
-  0.6,  0.15 -0.10
-)
-
-# Size, given on scale 0 to 1 
-# box_dim$x[2] = 0.3 in size:
-box_dim$x_scale = box_dim$x/box_dim$x[2]*0.3
-box_dim$y_scale = box_dim$y/box_dim$x[2]*0.3
-
-# Make ggcomb
-ggcomb <- ggdraw() +
-  draw_plot(gg3b, x = -0.20, y = -0.17, scale = 0.8) +
-  draw_plot(gg1_north, x = 0.2, y = 1.36, vjust = 1, scale = 0.60) +
-  draw_plot(gg_legend, x = -0.2, y = 1.36, hjust = 0, vjust = 1, scale = 0.55)
-for (i in seq_along(gg_box)){
-  ggcomb <- ggcomb + draw_plot(
-    gg_box[[i]], 
-    x = box_pos$x[i], y = box_pos$y[i], 
-    width = box_dim$x_scale[i], height = box_dim$y_scale[i]
-  )
-}
-
-# Plot to file
-scale <- 1.5
-png(filename = "07c_test4.png", width = 18*scale, height = 25*scale, units = "cm", res = 200)
-ggcomb
-dev.off()
-
-beepr::beep(2)
-
 # wait until "Plot to file" is finished until you plot the next
-plt <- image_read('07c_test4.png')
-print(plt)
+plt <- image_read('07c_test2.png')
+plt_legend <- image_read('Qualitymap_2021_legend_cropped.png')
 
-# IF HAPPY, run next line
-# file.copy('07c_test4.png', glue("{folder_fig}/07c_labelmap_complete.png"))
+plt_legend_scale <- image_scale(plt_legend, "400x")  # = x pixels width
+
+# bigdatafrink <- image_scale(image_rotate(image_background(frink, "none"), 300), "x200")
+
+plt_with_legend <- image_composite(plt, plt_legend_scale, offset = "+280+200")
+image_write(plt_with_legend, path = "07c_test4.png", format = "png")
+
+
+# file.copy("07c_test4.png", "Figures/2021_main/07c_qualitymap_complete.jpg")
 
 
 
