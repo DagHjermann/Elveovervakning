@@ -46,11 +46,15 @@ df_stations_all <- read_excel(
 df_stations_all <- df_stations_all[1:5]
 names(df_stations_all)[c(1,4,5)] <- c("Shortname", "Index_ecol", "Class_chem")
 
+sel <- grepl("NUM0", df_stations_all$Shortname); sum(sel)
+df_stations_all$Breddegrad[sel] <- "59.085689"
+
 # Set long, lat
 df_stations_all <- df_stations_all %>%
   mutate(Lat = as.numeric(sub(",", ".", Breddegrad)),
          Long = as.numeric(sub(",",".", Lengdegrad))
          )
+
 
 # "Fill out" Shortname
 for (i in  2:nrow(df_stations_all)){
