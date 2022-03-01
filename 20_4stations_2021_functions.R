@@ -330,12 +330,14 @@ if (FALSE){
 # plot_river2 
 # - plots background map, pies, river lines and name of Vannforekomst
 #
-# Input: data incluning variables "Elv", "Long", "Lat" plus three columns for color 
+# Input: data incluning variables "Elv", "Vannforekomst ID", "Long", "Lat" plus three columns for color 
 # - NOTE: hard-coded for plotting the 3 columns Påvekst_col, HBI_col, Bunndyr_col
+
+# - dlon, dlat is the size of the map ("distance" from the middle coordinate; see 'get_map')  
+# - radius is size of the pie (in meters, I think) 
 
 
 plot_river2 <- function(river, dlon, dlat, radius = 200, 
-                        aspect_adjustment = 0.8, 
                         river_col = "status", river_lwd = 3,
                         id_pos = "right", id_distance = 300, id_size = 0.8,
                         data, 
