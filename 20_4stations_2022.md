@@ -142,32 +142,22 @@ cowplot::plot_grid(
 ![](20_4stations_2022_files/figure-html/unnamed-chunk-4-2.png)<!-- -->
 
 
-## 2. Data  
+## 2. Data    
+
+### Raw data
 
 ```r
 # 2021
 fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2021/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx"
 
 # 2022
-fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2022/Vanntyper og punching av indeksverdier.xlsx"
+fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2022/Vanntyper og punching av indeksverdier  (1).xlsx"
 # readxl::excel_sheets(fn)
 
 dat <- read_excel(fn) %>%
   mutate(Lat = as.numeric(`Breddegrad, nord`),
          Long = as.numeric(`Lengdegrad, øst`))
-```
 
-```
-## New names:
-## * PIT -> PIT...16
-## * `nEQR PIT` -> `nEQR PIT...17`
-## * AIP -> AIP...18
-## * `nEQR AIP` -> `nEQR AIP...19`
-## * PIT -> PIT...20
-## * ...
-```
-
-```r
 n1 <- nrow(dat)
 
 # Column names hard-coded in functions
@@ -208,8 +198,10 @@ dat <- dat %>%
 
 ### Add colors to data     
 One color column for each of the columns Påvekstalger, HBI, Bunndyr
-* Note: PIT = index for Påvekstalger (see Veileder 02-2018 page 20)   
-* Note: HBI = index for Påvekstalger (see Veileder 02-2018 page 60)      
+* Note:  
+    - PIT = index for Påvekstalger (see Veileder 02-2018 page 20)
+    - HBI = index for Heterotrof begroing (see Veileder 02-2018 page 60)      
+    - ASPT = index for Bunndyr   
 
 ```r
 # 2021 version - status given as SG, G, M
@@ -230,10 +222,7 @@ dat <- dat %>%
   left_join(df_colors %>% select(Status_no, Class_color) %>% rename(HBI_col = Class_color),
             by = c("Tilstand HBI2" = "Status_no")) %>%
   left_join(df_colors %>% select(Status_no, Class_color) %>% rename(Bunndyr_col = Class_color),
-            by = c("Tilstand HBI2" = "Status_no")) %>%
-  left_join(df_colors %>% select(Status_no, Class_color) %>% rename(Combined_col = Class_color),
-            by = c("Tilstand HBI2" = "Status_no"))  
-
+            by = c("Tilstand ASPT" = "Status_no"))
 n2 <- nrow(dat)
 
 if (n1 != n2)
@@ -245,14 +234,79 @@ dat <- dat %>%
 ```
 
 
+### Check that we have what we need    
+
+* Note that this year (in contrast to 2021) we just set a fixed color for the river  
+    - Thus we don't need `Combined_col`  
+
+
+```r
+#
+# NOTE: check what you need 
+#
+
+# Obligatory variables IF river should be colored using 'Combined_col'
+vars <- c("Elv", "Vannforekomst ID", "Long", "Lat" ,
+          "Påvekst_col", "HBI_col", "Bunndyr_col", "Combined_col") # INCLUDE Combined_col
+
+# Obligatory variables IF river will be given just a constant color
+vars <- c("Elv", "Vannforekomst ID", "Long", "Lat" ,
+          "Påvekst_col", "HBI_col", "Bunndyr_col")   # NO Combined_col
+
+check <- !vars %in% names(dat)
+# check <- vars %in% names(dat)
+
+if (sum(check) > 0){
+  stop("Lacking variables: ", paste(vars[check], collapse = ", "), "!\n",
+       "This/these variables are needed for 'plot_river2'")
+} else {
+  message("Variables checked")
+}
+```
+
+```
+## Variables checked
+```
+
+
+
 ### Interactive map   
 * Only for info  
+
+```r
+dat
+```
+
+```
+## # A tibble: 12 x 35
+##    Elv       Elvestrekning            `Vannforekomst~` `Steds-beskriv~` Vanntype
+##    <chr>     <chr>                    <chr>            <chr>            <chr>   
+##  1 Lågen     Lågen nedstrøms Losna n~ 002-1208-R       Lågen nedstrøms~ Kalkfat~
+##  2 Lågen     Lågen Hunderfossen Høls~ 002-403-R        Lågen ved Hunde~ Kalkfat~
+##  3 Lågen     Lågen Hølshauget til Lå~ 002-1096-R       Gudbrandsdalslå~ Kalkfat~
+##  4 Hunnselva Hunnselva-Fiksvoll - Ve~ 002-573-R        Hunnselva ved G~ Moderat~
+##  5 Hunnselva Hunnselva, Breiskallen ~ 002-1822-R       Hunnselva, H5 (~ Moderat~
+##  6 Hunnselva Hunnselva- Brufoss- Mjø~ 002-609-R        Gjøvik gård (S)~ Moderat~
+##  7 Vikselva  Søndre Starelva v/Måsån  002-4737-R       Øverste v Måsån  Moderat~
+##  8 Vikselva  Søndre Starelva v/Granh~ 002-4737-R       Midtre v Granhe~ Moderat~
+##  9 Vikselva  Vikselva                 002-4736-R       Nederste v Tang~ Moderat~
+## 10 Svartelva Fura                     002-4984-R       Ved bru Kongsve~ Kalkrik~
+## 11 Svartelva Svartelva nedstr Ilseng  002-4811-R       Nedstrøms Ilseng Kalkrik~
+## 12 Svartelva Svartelva v/Hjellum      002-4811-R       Ved Hjellum      Kalkrik~
+## # ... with 30 more variables: `Aquamonitor kode` <chr>, `Vannmiljø kode` <chr>,
+## #   `Stasjons kode (bunndyr)` <chr>, `Stasjonskode (Begroingsalger)` <chr>,
+## #   `Breddegrad, nord` <chr>, `Lengdegrad, øst` <chr>, ASPT_vår <dbl>,
+## #   ASPT_høst <dbl>, ASPT_snitt <dbl>, `nEQR ASPT_snitt` <dbl>,
+## #   `Tilstand ASPT` <chr>, RAMI <chr>, `nEQR RAMI` <chr>, PIT <dbl>,
+## #   `EQR PIT` <dbl>, `nEQR PIT` <dbl>, `Tilstand PIT` <chr>, AIP <dbl>,
+## #   `EQR AIP` <dbl>, `nEQR AIP` <dbl>, `Tilstand AIP` <chr>, HBI2 <dbl>, ...
+```
 
 ```r
 vars <- c("Elv", "Elvestrekning", "Vannforekomst ID", "Steds-beskrivelse", 
           "Vanntype", "Aquamonitor kode", "Stasjons kode (bunndyr)", 
           "Stasjonskode (Begroingsalger)", "Tilstand PIT", "Tilstand AIP", "Tilstand HBI2", "Lat", "Long", 
-          "Påvekst_col", "HBI_col", "Bunndyr_col", "Combined_col")
+          "Påvekst_col", "HBI_col", "Bunndyr_col")
 
 # For easy plotting in mapvio 
 datsf_longlat <- sf::st_as_sf(
@@ -271,13 +325,17 @@ mapview(datsf_longlat, zcol = "Elv")
 ```
 
 ```{=html}
-<div id="htmlwidget-944516d5020abdf88cd3" style="width:672px;height:480px;" class="leaflet html-widget"></div>
-<script type="application/json" data-for="htmlwidget-944516d5020abdf88cd3">{"x":{"options":{"minZoom":1,"maxZoom":52,"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"preferCanvas":false,"bounceAtZoomLimits":false,"maxBounds":[[[-90,-370]],[[90,370]]]},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron","CartoDB.Positron","CartoDB.Positron",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["CartoDB.DarkMatter","CartoDB.DarkMatter","CartoDB.DarkMatter",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["OpenStreetMap","OpenStreetMap","OpenStreetMap",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["Esri.WorldImagery","Esri.WorldImagery","Esri.WorldImagery",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["OpenTopoMap","OpenTopoMap","OpenTopoMap",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"createMapPane","args":["point",440]},{"method":"addCircleMarkers","args":[[61.30145,61.21317,61.16418,60.64623,60.74296,60.79406,60.668562,60.66071,60.618023,60.795889,60.770417,60.785116],[10.29158,10.43373,10.39794,10.59733,10.61586,10.69038,11.31832,11.32162,11.259203,11.271931,11.217943,11.152606],6,null,"datsf_longlat - Elv",{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"pane":"point","stroke":true,"color":"#333333","weight":1,"opacity":[0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9],"fill":true,"fillColor":["#007094","#007094","#007094","#4B0055","#4B0055","#4B0055","#FDE333","#FDE333","#FDE333","#00BE7D","#00BE7D","#00BE7D"],"fillOpacity":[0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6]},null,null,["<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>1&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Lågen&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Lågen nedstrøms Losna ned til Aurvika&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-1208-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Lågen nedstrøms Tretten renseanlegg (002-79471 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkfattig, svært klar (R104)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>GLÅG1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>GU22&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>GLÅG1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>2&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Lågen&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Lågen Hunderfossen Hølshauget&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-403-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Lågen ved Hunderfossen (002-43689 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkfattig, svært klar (R104)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>GLÅG2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>GU23&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>GLÅG2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>3&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Lågen&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Lågen Hølshauget til Lågendeltaet&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-1096-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Gudbrandsdalslågen, utløp Mjøsa (002-28927 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkfattig, svært klar (R104)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>GLÅG3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>GU24&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>GLÅG3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>4&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Hunnselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Hunnselva-Fiksvoll - Vestbakken&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-573-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Hunnselva ved Gamme gård (002-42311 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>HUN1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>HUNF&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>HUN1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>5&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Hunnselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Hunnselva, Breiskallen til Korta&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-1822-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Hunnselva, H5 (002-79028 i vannmiljø)*&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>HUN2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>HU4D&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>HUN2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>6&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Hunnselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Hunnselva- Brufoss- Mjøsa&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-609-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Gjøvik gård (S) (002-44026 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>HUN3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>HUNG&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>HUN3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>7&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Søndre Starelva v/Måsån&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4737-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Øverste v Måsån&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>VIK1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SSØM&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>VIK1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>8&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Søndre Starelva v/Granheim&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4737-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Midtre v Granheim**&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>VIK2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SSVG&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>VIK2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>9&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4736-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Nederste v Tangen skole før utløp Mjøsa&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>VIK3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>VIKT&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>VIK3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>10&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Svartelva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Fura&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4984-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Ved bru Kongsvegen&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkrik, humøs (R110) (manglende data)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>SVA2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>FURH&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>SVA2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>11&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Svartelva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Svartelva nedstr Ilseng&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4811-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Nedstrøms Ilseng&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkrik, humøs (R110)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>SVA1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SVAI&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>SVA1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>12&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Svartelva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Svartelva v/Hjellum&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4811-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Ved Hjellum&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkrik, humøs (R110)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>SVA3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SVAK&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>SVA3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>Combined_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>16<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>"],{"maxWidth":800,"minWidth":50,"autoPan":true,"keepInView":false,"closeButton":true,"closeOnClick":true,"className":""},["Lågen","Lågen","Lågen","Hunnselva","Hunnselva","Hunnselva","Vikselva","Vikselva","Vikselva","Svartelva","Svartelva","Svartelva"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addScaleBar","args":[{"maxWidth":100,"metric":true,"imperial":true,"updateWhenIdle":true,"position":"bottomleft"}]},{"method":"addHomeButton","args":[10.29158,60.618023,11.32162,61.30145,true,"datsf_longlat - Elv","Zoom to datsf_longlat - Elv","<strong> datsf_longlat - Elv <\/strong>","bottomright"]},{"method":"addLayersControl","args":[["CartoDB.Positron","CartoDB.DarkMatter","OpenStreetMap","Esri.WorldImagery","OpenTopoMap"],"datsf_longlat - Elv",{"collapsed":true,"autoZIndex":true,"position":"topleft"}]},{"method":"addLegend","args":[{"colors":["#4B0055","#007094","#00BE7D","#FDE333"],"labels":["Hunnselva","Lågen","Svartelva","Vikselva"],"na_color":null,"na_label":"NA","opacity":1,"position":"topright","type":"factor","title":"datsf_longlat - Elv","extra":null,"layerId":null,"className":"info legend","group":"datsf_longlat - Elv"}]}],"limits":{"lat":[60.618023,61.30145],"lng":[10.29158,11.32162]},"fitBounds":[60.618023,10.29158,61.30145,11.32162,[]]},"evals":[],"jsHooks":{"render":[{"code":"function(el, x, data) {\n  return (\n      function(el, x, data) {\n      // get the leaflet map\n      var map = this; //HTMLWidgets.find('#' + el.id);\n      // we need a new div element because we have to handle\n      // the mouseover output separately\n      // debugger;\n      function addElement () {\n      // generate new div Element\n      var newDiv = $(document.createElement('div'));\n      // append at end of leaflet htmlwidget container\n      $(el).append(newDiv);\n      //provide ID and style\n      newDiv.addClass('lnlt');\n      newDiv.css({\n      'position': 'relative',\n      'bottomleft':  '0px',\n      'background-color': 'rgba(255, 255, 255, 0.7)',\n      'box-shadow': '0 0 2px #bbb',\n      'background-clip': 'padding-box',\n      'margin': '0',\n      'padding-left': '5px',\n      'color': '#333',\n      'font': '9px/1.5 \"Helvetica Neue\", Arial, Helvetica, sans-serif',\n      'z-index': '700',\n      });\n      return newDiv;\n      }\n\n\n      // check for already existing lnlt class to not duplicate\n      var lnlt = $(el).find('.lnlt');\n\n      if(!lnlt.length) {\n      lnlt = addElement();\n\n      // grab the special div we generated in the beginning\n      // and put the mousmove output there\n\n      map.on('mousemove', function (e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                           ' lon: ' + (e.latlng.lng).toFixed(5) +\n                           ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                           ' | zoom: ' + map.getZoom() +\n                           ' | x: ' + L.CRS.EPSG3857.project(e.latlng).x.toFixed(0) +\n                           ' | y: ' + L.CRS.EPSG3857.project(e.latlng).y.toFixed(0) +\n                           ' | epsg: 3857 ' +\n                           ' | proj4: +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs ');\n      } else {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      }\n      });\n\n      // remove the lnlt div when mouse leaves map\n      map.on('mouseout', function (e) {\n      var strip = document.querySelector('.lnlt');\n      if( strip !==null) strip.remove();\n      });\n\n      };\n\n      //$(el).keypress(67, function(e) {\n      map.on('preclick', function(e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      var txt = document.querySelector('.lnlt').textContent;\n      console.log(txt);\n      //txt.innerText.focus();\n      //txt.select();\n      setClipboardText('\"' + txt + '\"');\n      }\n      });\n\n      }\n      ).call(this.getMap(), el, x, data);\n}","data":null},{"code":"function(el, x, data) {\n  return (function(el,x,data){\n           var map = this;\n\n           map.on('keypress', function(e) {\n               console.log(e.originalEvent.code);\n               var key = e.originalEvent.code;\n               if (key === 'KeyE') {\n                   var bb = this.getBounds();\n                   var txt = JSON.stringify(bb);\n                   console.log(txt);\n\n                   setClipboardText('\\'' + txt + '\\'');\n               }\n           })\n        }).call(this.getMap(), el, x, data);\n}","data":null}]}}</script>
+<div id="htmlwidget-00a93af3a2c706dcb228" style="width:672px;height:480px;" class="leaflet html-widget"></div>
+<script type="application/json" data-for="htmlwidget-00a93af3a2c706dcb228">{"x":{"options":{"minZoom":1,"maxZoom":52,"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"preferCanvas":false,"bounceAtZoomLimits":false,"maxBounds":[[[-90,-370]],[[90,370]]]},"calls":[{"method":"addProviderTiles","args":["CartoDB.Positron","CartoDB.Positron","CartoDB.Positron",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["CartoDB.DarkMatter","CartoDB.DarkMatter","CartoDB.DarkMatter",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["OpenStreetMap","OpenStreetMap","OpenStreetMap",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["Esri.WorldImagery","Esri.WorldImagery","Esri.WorldImagery",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["OpenTopoMap","OpenTopoMap","OpenTopoMap",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"createMapPane","args":["point",440]},{"method":"addCircleMarkers","args":[[61.30145,61.21317,61.16418,60.64623,60.74296,60.79406,60.668562,60.66071,60.618023,60.795889,60.770417,60.785116],[10.29158,10.43373,10.39794,10.59733,10.61586,10.69038,11.31832,11.32162,11.259203,11.271931,11.217943,11.152606],6,null,"datsf_longlat - Elv",{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"pane":"point","stroke":true,"color":"#333333","weight":1,"opacity":[0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9],"fill":true,"fillColor":["#007094","#007094","#007094","#4B0055","#4B0055","#4B0055","#FDE333","#FDE333","#FDE333","#00BE7D","#00BE7D","#00BE7D"],"fillOpacity":[0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6]},null,null,["<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>1&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Lågen&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Lågen nedstrøms Losna ned til Aurvika&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-1208-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Lågen nedstrøms Tretten renseanlegg (002-79471 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkfattig, svært klar (R104)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>GLÅG1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>GU22&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>GLÅG1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>2&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Lågen&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Lågen Hunderfossen Hølshauget&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-403-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Lågen ved Hunderfossen (002-43689 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkfattig, svært klar (R104)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>GLÅG2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>GU23&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>GLÅG2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>3&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Lågen&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Lågen Hølshauget til Lågendeltaet&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-1096-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Gudbrandsdalslågen, utløp Mjøsa (002-28927 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkfattig, svært klar (R104)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>GLÅG3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>GU24&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>GLÅG3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>4&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Hunnselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Hunnselva-Fiksvoll - Vestbakken&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-573-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Hunnselva ved Gamme gård (002-42311 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>HUN1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>HUNF&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>HUN1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Svært god&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#005CE6&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>5&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Hunnselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Hunnselva, Breiskallen til Korta&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-1822-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Hunnselva, H5 (002-79028 i vannmiljø)*&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>HUN2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>HU4D&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>HUN2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>6&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Hunnselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Hunnselva- Brufoss- Mjøsa&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-609-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Gjøvik gård (S) (002-44026 i vannmiljø)&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>HUN3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>HUNG&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>HUN3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>7&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Søndre Starelva v/Måsån&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4737-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Øverste v Måsån&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>VIK1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SSØM&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>VIK1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>8&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Søndre Starelva v/Granheim&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4737-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Midtre v Granheim**&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>VIK2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SSVG&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>VIK2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>9&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Vikselva&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4736-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Nederste v Tangen skole før utløp Mjøsa&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Moderat kalkrik, humøs (R108)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>VIK3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>VIKT&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>VIK3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>10&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Svartelva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Fura&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4984-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Ved bru Kongsvegen&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkrik, humøs (R110) (manglende data)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>SVA2&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>FURH&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>SVA2&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>11&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Svartelva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Svartelva nedstr Ilseng&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4811-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Nedstrøms Ilseng&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkrik, humøs (R110)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>SVA1&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SVAI&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>SVA1&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>12&emsp;<\/td><\/tr><tr><td>1<\/td><th>Elv&emsp;<\/th><td>Svartelva&emsp;<\/td><\/tr><tr><td>2<\/td><th>Elvestrekning&emsp;<\/th><td>Svartelva v/Hjellum&emsp;<\/td><\/tr><tr><td>3<\/td><th>Vannforekomst ID&emsp;<\/th><td>002-4811-R&emsp;<\/td><\/tr><tr><td>4<\/td><th>Steds-beskrivelse&emsp;<\/th><td>Ved Hjellum&emsp;<\/td><\/tr><tr><td>5<\/td><th>Vanntype&emsp;<\/th><td>Kalkrik, humøs (R110)&emsp;<\/td><\/tr><tr><td>6<\/td><th>Aquamonitor kode&emsp;<\/th><td>SVA3&emsp;<\/td><\/tr><tr><td>7<\/td><th>Stasjons kode (bunndyr)&emsp;<\/th><td>SVAK&emsp;<\/td><\/tr><tr><td>8<\/td><th>Stasjonskode (Begroingsalger)&emsp;<\/th><td>SVA3&emsp;<\/td><\/tr><tr><td>9<\/td><th>Tilstand PIT&emsp;<\/th><td>Moderat&emsp;<\/td><\/tr><tr><td>10<\/td><th>Tilstand AIP&emsp;<\/th><td>NA&emsp;<\/td><\/tr><tr><td>11<\/td><th>Tilstand HBI2&emsp;<\/th><td>God&emsp;<\/td><\/tr><tr><td>12<\/td><th>Påvekst_col&emsp;<\/th><td>#FFEC00&emsp;<\/td><\/tr><tr><td>13<\/td><th>HBI_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>14<\/td><th>Bunndyr_col&emsp;<\/th><td>#009036&emsp;<\/td><\/tr><tr><td>15<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>"],{"maxWidth":800,"minWidth":50,"autoPan":true,"keepInView":false,"closeButton":true,"closeOnClick":true,"className":""},["Lågen","Lågen","Lågen","Hunnselva","Hunnselva","Hunnselva","Vikselva","Vikselva","Vikselva","Svartelva","Svartelva","Svartelva"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addScaleBar","args":[{"maxWidth":100,"metric":true,"imperial":true,"updateWhenIdle":true,"position":"bottomleft"}]},{"method":"addHomeButton","args":[10.29158,60.618023,11.32162,61.30145,true,"datsf_longlat - Elv","Zoom to datsf_longlat - Elv","<strong> datsf_longlat - Elv <\/strong>","bottomright"]},{"method":"addLayersControl","args":[["CartoDB.Positron","CartoDB.DarkMatter","OpenStreetMap","Esri.WorldImagery","OpenTopoMap"],"datsf_longlat - Elv",{"collapsed":true,"autoZIndex":true,"position":"topleft"}]},{"method":"addLegend","args":[{"colors":["#4B0055","#007094","#00BE7D","#FDE333"],"labels":["Hunnselva","Lågen","Svartelva","Vikselva"],"na_color":null,"na_label":"NA","opacity":1,"position":"topright","type":"factor","title":"datsf_longlat - Elv","extra":null,"layerId":null,"className":"info legend","group":"datsf_longlat - Elv"}]}],"limits":{"lat":[60.618023,61.30145],"lng":[10.29158,11.32162]},"fitBounds":[60.618023,10.29158,61.30145,11.32162,[]]},"evals":[],"jsHooks":{"render":[{"code":"function(el, x, data) {\n  return (\n      function(el, x, data) {\n      // get the leaflet map\n      var map = this; //HTMLWidgets.find('#' + el.id);\n      // we need a new div element because we have to handle\n      // the mouseover output separately\n      // debugger;\n      function addElement () {\n      // generate new div Element\n      var newDiv = $(document.createElement('div'));\n      // append at end of leaflet htmlwidget container\n      $(el).append(newDiv);\n      //provide ID and style\n      newDiv.addClass('lnlt');\n      newDiv.css({\n      'position': 'relative',\n      'bottomleft':  '0px',\n      'background-color': 'rgba(255, 255, 255, 0.7)',\n      'box-shadow': '0 0 2px #bbb',\n      'background-clip': 'padding-box',\n      'margin': '0',\n      'padding-left': '5px',\n      'color': '#333',\n      'font': '9px/1.5 \"Helvetica Neue\", Arial, Helvetica, sans-serif',\n      'z-index': '700',\n      });\n      return newDiv;\n      }\n\n\n      // check for already existing lnlt class to not duplicate\n      var lnlt = $(el).find('.lnlt');\n\n      if(!lnlt.length) {\n      lnlt = addElement();\n\n      // grab the special div we generated in the beginning\n      // and put the mousmove output there\n\n      map.on('mousemove', function (e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                           ' lon: ' + (e.latlng.lng).toFixed(5) +\n                           ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                           ' | zoom: ' + map.getZoom() +\n                           ' | x: ' + L.CRS.EPSG3857.project(e.latlng).x.toFixed(0) +\n                           ' | y: ' + L.CRS.EPSG3857.project(e.latlng).y.toFixed(0) +\n                           ' | epsg: 3857 ' +\n                           ' | proj4: +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs ');\n      } else {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      }\n      });\n\n      // remove the lnlt div when mouse leaves map\n      map.on('mouseout', function (e) {\n      var strip = document.querySelector('.lnlt');\n      if( strip !==null) strip.remove();\n      });\n\n      };\n\n      //$(el).keypress(67, function(e) {\n      map.on('preclick', function(e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      var txt = document.querySelector('.lnlt').textContent;\n      console.log(txt);\n      //txt.innerText.focus();\n      //txt.select();\n      setClipboardText('\"' + txt + '\"');\n      }\n      });\n\n      }\n      ).call(this.getMap(), el, x, data);\n}","data":null},{"code":"function(el, x, data) {\n  return (function(el,x,data){\n           var map = this;\n\n           map.on('keypress', function(e) {\n               console.log(e.originalEvent.code);\n               var key = e.originalEvent.code;\n               if (key === 'KeyE') {\n                   var bb = this.getBounds();\n                   var txt = JSON.stringify(bb);\n                   console.log(txt);\n\n                   setClipboardText('\\'' + txt + '\\'');\n               }\n           })\n        }).call(this.getMap(), el, x, data);\n}","data":null}]}}</script>
 ```
 
 
 
+
 ## 3. Openstreetmap {.tabset}
+
+* Note that this year (in contrast to 2021) we just set a fixed color
+`river_col = "#005CE6"` for the river, instaed of coloring according to status  
 
 
 ### Hunnselva  
@@ -289,16 +347,12 @@ mapview(datsf_longlat, zcol = "Elv")
 rivername <- "Hunnselva"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6",
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("left", "right", "left"),
             id_distance = c(1500, 1500, 1500), 
@@ -306,7 +360,13 @@ plot_river2(rivername,
             maptype = "osm")
 ```
 
-![](20_4stations_2022_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](20_4stations_2022_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+```r
+if (save_figures){
+  dev.off()
+}
+```
 
 ### Lågen  
 
@@ -315,16 +375,12 @@ plot_river2(rivername,
 rivername <- "Lågen"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6", 
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("left", "right", "left"),
             id_distance = c(1000, 0, 200), 
@@ -332,7 +388,13 @@ plot_river2(rivername,
             maptype = "osm")
 ```
 
-![](20_4stations_2022_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](20_4stations_2022_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+```r
+if (save_figures){
+  dev.off()
+}
+```
 
 ### Svartelva  
 * Note: three sampling points, but ony two vannforekomst  
@@ -341,18 +403,14 @@ plot_river2(rivername,
 rivername <- "Svartelva"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6", 
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("below", "right"),
             id_distance = c(300, -1900), 
@@ -360,7 +418,13 @@ plot_river2(rivername,
             maptype = "osm")
 ```
 
-![](20_4stations_2022_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](20_4stations_2022_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+```r
+if (save_figures){
+  dev.off()
+}
+```
 
 
 ### Vikselva  
@@ -370,17 +434,13 @@ plot_river2(rivername,
 rivername <- "Vikselva"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6", 
             dlon = 0.26, dlat = 0.13, radius = 600, 
             id_pos = c("above", "left"),
             id_distance = c(1500, -3000), 
@@ -388,6 +448,12 @@ plot_river2(rivername,
             maptype = "osm")
 ```
 
-![](20_4stations_2022_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](20_4stations_2022_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
+```r
+if (save_figures){
+  dev.off()
+}
+```
 
 
