@@ -125,14 +125,16 @@ cowplot::plot_grid(
 ```
 
 
-## 2. Data  
+## 2. Data    
+
+### Raw data
 ```{r}
 
 # 2021
 fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2021/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx"
 
 # 2022
-fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2022/Vanntyper og punching av indeksverdier.xlsx"
+fn <- "C:/Data/seksjon 318/Elveovervakning/Data_input/2022/Vanntyper og punching av indeksverdier  (1).xlsx"
 # readxl::excel_sheets(fn)
 
 dat <- read_excel(fn) %>%
@@ -180,8 +182,10 @@ dat <- dat %>%
 
 ### Add colors to data     
 One color column for each of the columns Påvekstalger, HBI, Bunndyr
-* Note: PIT = index for Påvekstalger (see Veileder 02-2018 page 20)   
-* Note: HBI = index for Påvekstalger (see Veileder 02-2018 page 60)      
+* Note:  
+    - PIT = index for Påvekstalger (see Veileder 02-2018 page 20)
+    - HBI = index for Heterotrof begroing (see Veileder 02-2018 page 60)      
+    - ASPT = index for Bunndyr   
 ```{r}
 
 # 2021 version - status given as SG, G, M
@@ -202,10 +206,7 @@ dat <- dat %>%
   left_join(df_colors %>% select(Status_no, Class_color) %>% rename(HBI_col = Class_color),
             by = c("Tilstand HBI2" = "Status_no")) %>%
   left_join(df_colors %>% select(Status_no, Class_color) %>% rename(Bunndyr_col = Class_color),
-            by = c("Tilstand HBI2" = "Status_no")) %>%
-  left_join(df_colors %>% select(Status_no, Class_color) %>% rename(Combined_col = Class_color),
-            by = c("Tilstand HBI2" = "Status_no"))  
-
+            by = c("Tilstand ASPT" = "Status_no"))
 n2 <- nrow(dat)
 
 if (n1 != n2)
@@ -218,14 +219,35 @@ dat <- dat %>%
 ```
 
 
+### Check that we have what we need  
+```{r}
+
+# Obligatory variables  
+vars <- c("Elv", "Vannforekomst ID", "Long", "Lat" ,
+          "Påvekst_col", "HBI_col", "Bunndyr_col", "Combined_col")
+
+check <- !vars %in% names(dat)
+# check <- vars %in% names(dat)
+
+if (sum(check) > 0){
+  stop("Lacking variables: ", paste(vars[check], collapse = ", "), "!\n",
+       "This/these variables are needed for 'plot_river2'")
+}
+
+```
+
+
+
 ### Interactive map   
 * Only for info  
 ```{r}
 
+dat
+
 vars <- c("Elv", "Elvestrekning", "Vannforekomst ID", "Steds-beskrivelse", 
           "Vanntype", "Aquamonitor kode", "Stasjons kode (bunndyr)", 
           "Stasjonskode (Begroingsalger)", "Tilstand PIT", "Tilstand AIP", "Tilstand HBI2", "Lat", "Long", 
-          "Påvekst_col", "HBI_col", "Bunndyr_col", "Combined_col")
+          "Påvekst_col", "HBI_col", "Bunndyr_col")
 
 # For easy plotting in mapvio 
 datsf_longlat <- sf::st_as_sf(
@@ -244,6 +266,7 @@ mapview(datsf_longlat, zcol = "Elv")
 
 
 ```
+
 
 
 

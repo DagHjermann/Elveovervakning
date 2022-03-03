@@ -330,8 +330,10 @@ if (FALSE){
 # plot_river2 
 # - plots background map, pies, river lines and name of Vannforekomst
 #
-# Input: data incluning variables "Elv", "Vannforekomst ID", "Long", "Lat" plus three columns for color 
-# - NOTE: hard-coded for plotting the 3 columns Påvekst_col, HBI_col, Bunndyr_col
+# Input: data including 
+#    - variables "Elv", "Vannforekomst ID", "Long", "Lat" 
+#    - three columns for color (hard-coded: Påvekst_col, HBI_col, Bunndyr_col)  
+#    - one column 'Combined_col' for color of the river   
 
 # - dlon, dlat is the size of the map ("distance" from the middle coordinate; see 'get_map')  
 # - radius is size of the pie (in meters, I think) 
