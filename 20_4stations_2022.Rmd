@@ -219,12 +219,24 @@ dat <- dat %>%
 ```
 
 
-### Check that we have what we need  
+### Check that we have what we need    
+
+* Note that this year (in contrast to 2021) we just set a fixed color for the river  
+    - Thus we don't need `Combined_col`  
+
 ```{r}
 
-# Obligatory variables  
+#
+# NOTE: check what you need 
+#
+
+# Obligatory variables IF river should be colored using 'Combined_col'
 vars <- c("Elv", "Vannforekomst ID", "Long", "Lat" ,
-          "Påvekst_col", "HBI_col", "Bunndyr_col", "Combined_col")
+          "Påvekst_col", "HBI_col", "Bunndyr_col", "Combined_col") # INCLUDE Combined_col
+
+# Obligatory variables IF river will be given just a constant color
+vars <- c("Elv", "Vannforekomst ID", "Long", "Lat" ,
+          "Påvekst_col", "HBI_col", "Bunndyr_col")   # NO Combined_col
 
 check <- !vars %in% names(dat)
 # check <- vars %in% names(dat)
@@ -232,6 +244,8 @@ check <- !vars %in% names(dat)
 if (sum(check) > 0){
   stop("Lacking variables: ", paste(vars[check], collapse = ", "), "!\n",
        "This/these variables are needed for 'plot_river2'")
+} else {
+  message("Variables checked")
 }
 
 ```
@@ -272,6 +286,9 @@ mapview(datsf_longlat, zcol = "Elv")
 
 ## 3. Openstreetmap {.tabset}
 
+* Note that this year (in contrast to 2021) we just set a fixed color
+`river_col = "#005CE6"` for the river, instaed of coloring according to status  
+
 
 ### Hunnselva  
 
@@ -282,21 +299,21 @@ mapview(datsf_longlat, zcol = "Elv")
 rivername <- "Hunnselva"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6",
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("left", "right", "left"),
             id_distance = c(1500, 1500, 1500), 
             data = dat,
             maptype = "osm")
+
+if (save_figures){
+  dev.off()
+}
 
 ```
 
@@ -308,21 +325,21 @@ plot_river2(rivername,
 rivername <- "Lågen"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6", 
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("left", "right", "left"),
             id_distance = c(1000, 0, 200), 
             data = dat,
             maptype = "osm")
+
+if (save_figures){
+  dev.off()
+}
 
 ```
 
@@ -334,23 +351,23 @@ plot_river2(rivername,
 rivername <- "Svartelva"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6", 
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("below", "right"),
             id_distance = c(300, -1900), 
             data = dat,
             maptype = "osm")
+
+if (save_figures){
+  dev.off()
+}
 
 ```
 
@@ -363,22 +380,22 @@ plot_river2(rivername,
 rivername <- "Vikselva"
 
 if (save_figures){
-  
   png(paste0("Figures/2022/20_4stations_2022_", rivername, ".png"), 
       width = 5, height = 5, units = "in", res = 400)
-  dev.off()
-
-  
 }
 
 
 # debugonce(plot_river2)
-plot_river2(rivername, 
+plot_river2(rivername, river_col = "#005CE6", 
             dlon = 0.26, dlat = 0.13, radius = 600, 
             id_pos = c("above", "left"),
             id_distance = c(1500, -3000), 
             data = dat,
             maptype = "osm")
+
+if (save_figures){
+  dev.off()
+}
 
 ```
 
