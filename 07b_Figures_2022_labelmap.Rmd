@@ -158,7 +158,13 @@ df_stations_all <- df_stations_all %>%
 # The default transformation for 'add_transformed_coord' is from latlong to 
 df_stations_all <- add_transformed_coord(df_stations_all, 
                                      name_x = "Long", name_y = "Lat",
-                                     from = "longlat", to = "utm", to_zone = 32)
+                                     from = "longlat", to = "utm", to_zone = 32)  
+
+write_csv(df_stations_all %>% select(-Stasjonstype),
+          "Data_input/2022/KartOgFigurgrunnlag2021.csv")  
+
+# write_csv(very_simple_map %>% add_transformed_coord(),
+#           "Data_input/2022/very_simple_map.csv")
 
 ```
 
@@ -244,6 +250,7 @@ if (FALSE){
 ```{r}
 
 # Check counties: it turns out that 5 = Nordland, 10 = Troms + Finnmark
+
 if (FALSE){
   df_counties_all %>% 
     filter(L1 == 1) %>%
@@ -251,12 +258,17 @@ if (FALSE){
     summarise(across(, mean)) %>%
     arrange(y) %>%
     ggplot(aes(x, y, label = id)) +
-    geom_text()
+    geom_text() +
+    coord_equal(ratio = 0.5) 
 }
 
 # Remove these 3 counties (Northern Norway)
 df_counties <- df_counties_all %>%
   filter(!id %in% c(5,10))
+
+# Keep these 2 counties (Trøndelag + Nordland)
+df_counties <- df_counties_all %>%
+  filter(id %in% c(9,5))
 
 # Get remaining county numbers
 county_numbers <- unique(df_counties$id)
