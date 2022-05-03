@@ -1,0 +1,7 @@
+For main report (autumn):
+- KartOgFigurgrunnlag_TilDag.xlsx  
+- Maps and figures in "2021_main"
+
+For "4 rivers" (20_4stations_2021.Rmd):
+- Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx
+- Maps and figures in "2021"

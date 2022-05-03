@@ -287,7 +287,7 @@ mapview(datsf_longlat, zcol = "Elv")
 ## 3. Openstreetmap {.tabset}
 
 * Note that this year (in contrast to 2021) we just set a fixed color
-`river_col = "#005CE6"` for the river, instaed of coloring according to status  
+`river_col = "deepskyblue"` for the river, instaed of coloring according to status  
 
 
 ### Hunnselva  
@@ -304,7 +304,7 @@ if (save_figures){
 }
 
 # debugonce(plot_river2)
-plot_river2(rivername, river_col = "#005CE6",
+plot_river2(rivername, river_col = "deepskyblue",
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("left", "right", "left"),
             id_distance = c(1500, 1500, 1500), 
@@ -330,7 +330,7 @@ if (save_figures){
 }
 
 # debugonce(plot_river2)
-plot_river2(rivername, river_col = "#005CE6", 
+plot_river2(rivername, river_col = "deepskyblue1", 
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("left", "right", "left"),
             id_distance = c(1000, 0, 200), 
@@ -358,7 +358,7 @@ if (save_figures){
 
 
 # debugonce(plot_river2)
-plot_river2(rivername, river_col = "#005CE6", 
+plot_river2(rivername, river_col = "deepskyblue", 
             dlon = 0.40, dlat = 0.20, radius = 1200, 
             id_pos = c("below", "right"),
             id_distance = c(300, -1900), 
@@ -386,7 +386,7 @@ if (save_figures){
 
 
 # debugonce(plot_river2)
-plot_river2(rivername, river_col = "#005CE6", 
+plot_river2(rivername, river_col = "deepskyblue", 
             dlon = 0.26, dlat = 0.13, radius = 600, 
             id_pos = c("above", "left"),
             id_distance = c(1500, -3000), 
@@ -398,5 +398,18 @@ if (save_figures){
 }
 
 ```
+## 4. Copy to K  
+```{r}
 
+if (FALSE){
+  
+  fns <- dir("Figures/2022", full.names = TRUE)
+  
+  for (fn in fns)
+    file.copy(fn, "K:/Avdeling/214-Oseanografi/DHJ/Prosjekter/Mjøsa_2021")
+  
+}
+
+
+```
 
