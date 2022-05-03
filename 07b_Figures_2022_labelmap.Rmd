@@ -125,7 +125,8 @@ crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
 
 ## 2. Data
 
-### a1. Data from script 7a
+### a1. Data   
+* From excel  
 ```{r, warning=FALSE}
 
 df_stations_all_OLD <- readRDS("Data/2021/07a_df_stations_2020.rds")
@@ -143,10 +144,25 @@ df_stations_all <- read_excel("Data_input/2022/KartOgFigurgrunnlag2021.xlsx",
 
 str(df_stations_all)
 
+#
+# NOTE! JUST FOR NOW WE SET ALL RIVERS TO 'Økologisk tilstand'
+# 
+df_stations_all <- df_stations_all %>%
+  mutate(Stasjonstype = "Økologisk tilstand")
+
+
+```
+### a2. Stations, add UTM coordinates
+```{r}
+
+# The default transformation for 'add_transformed_coord' is from latlong to 
+df_stations_all <- add_transformed_coord(df_stations_all, 
+                                     name_x = "Long", name_y = "Lat",
+                                     from = "longlat", to = "utm", to_zone = 32)
 
 ```
 
-### a2. Plot all stations  
+### a3. Plot all stations  
 ```{r}
 
 very_simple_map <- map_data("world", "Norway")
@@ -160,11 +176,11 @@ ggplot(df_stations_all, aes(Long, Lat)) +
 
 ```
 
-### a3. Split into North and South Norway    
+### a4. Split into North and South Norway    
 - The southern one is called 'df_stations' just to keep with previous work  
 ```{r}
 
-df_stations <- df_stations_all %>%
+df_stations_south <- df_stations_all %>%
   filter(Lat < 65)
 
 df_stations_north <- df_stations_all %>%
@@ -370,7 +386,41 @@ df_lakes_mjosa <- df_lakes %>% filter(group == 3462)
 
 
 
-## 3. Define inset boxes (boxlist)   
+## 3A. Plot without inset boxes  
+
+```{r, fig.width=8, fig.height=10}
+
+df_stations         <- df_stations_all   
+df_stations_outside <- df_stations_all   
+
+gg1 <- gg1_back +
+  geom_point(
+    data = df_stations, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  theme(  legend.position = c(.95, .95),
+          legend.justification = c("right", "top"),
+          legend.box.just = "right",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
+  geom_label_repel(
+    data = df_stations_outside, 
+    aes(label = Shortname, shape = Stasjonstype), color = "blue3", 
+    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 50000, box_padding = 0.5,
+    point_padding = 0.5)
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_test.png", gg1, width = 8, height = 12)
+
+# gg1
+
+```
+
+
+## 3b. Define inset boxes (boxlist)   
 
 ### a1. Code for getting box coordinates    
 ```{r}
@@ -498,17 +548,8 @@ leaf2
 
 ## 4. Prepare datasets with UTM coordinates  
 
-### a. Stations, add UTM coordinates
-```{r}
 
-# The default transformation for 'add_transformed_coord' is from latlong to 
-df_stations <- add_transformed_coord(df_stations, 
-                                     name_x = "Long", name_y = "Lat",
-                                     from = "longlat", to = "utm", to_zone = 32)
-
-```
-
-### b. Inset boxes, set UTM coordinates and dimensions  
+### a. Inset boxes, set UTM coordinates and dimensions  
 - From 'boxlist' to 'box_polygons'   
 - 'boxlist'  was defined in 3-a2  
 - 'box_polygons' is used 
@@ -545,7 +586,7 @@ box_polygons <- box_corners %>%
 
 ```
 
-### c. Save datasets
+### b. Save datasets
 ```{r}
 
 # saveRDS(df_stations, "Data/2021/07b_df_stations.rds")
