@@ -77,7 +77,7 @@ save_plots <- FALSE
 #
 # Where to save figures
 #
-folder_fig <- "Figures/2021_main"
+folder_fig <- "Figures/2022_main"
 
 
 ```
@@ -87,6 +87,7 @@ folder_fig <- "Figures/2021_main"
 library(tidyverse)  # filter, group_by, summary, etc.
 library(gridGraphics)
 library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
+library(mapdata)
 library(readxl)
 
 # map_norway <- map_data("world", "Norway")
@@ -125,18 +126,37 @@ crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
 ## 2. Data
 
 ### a1. Data from script 7a
-```{r}
+```{r, warning=FALSE}
 
-df_stations_all <- readRDS("Data/2021/07a_df_stations_2020.rds")
+df_stations_all_OLD <- readRDS("Data/2021/07a_df_stations_2020.rds")
+
+str(df_stations_all_OLD)
+
+df_stations_all <- read_excel("Data_input/2022/KartOgFigurgrunnlag2021.xlsx", 
+                              range = "A1:C34", 
+                              col_types = c("text", "numeric", "numeric")) %>%
+  rename(Shortname = Rapportnavn,
+         Lat = Biologi_Lat,
+         Long = Biologi_Long)
+#         Index_ecol = `Samlet økologisk tilstand (nEQR)`,
+#         Class_chem = `Kjemisk tilstand`)
+
+str(df_stations_all)
+
 
 ```
 
 ### a2. Plot all stations  
 ```{r}
 
+very_simple_map <- map_data("world", "Norway")
+
 ggplot(df_stations_all, aes(Long, Lat)) +
+  annotation_map(very_simple_map, fill = "lightgreen") +
   geom_point() +
+  # geom_text_repel() +
   coord_map("lambert", 15, 65)  
+
 
 ```
 
@@ -355,7 +375,7 @@ df_lakes_mjosa <- df_lakes %>% filter(group == 3462)
 ### a1. Code for getting box coordinates    
 ```{r}
 
-# Recommended to reun in a separate .R script window   
+# Recommended to run in a separate .R script window   
 if (FALSE){
   
   #
