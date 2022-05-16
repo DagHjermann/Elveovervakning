@@ -46,47 +46,51 @@ These are from
 
 # Backup (for reproducibility)
 dir_data <- "Data_input/2022"    
+filename <- "KartOgFigurgrunnlag2021.xlsx"
 
 # Original (used in report):
-dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
-filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
+# dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
+# filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
 
-df_stations_all <- read_excel(
-  paste0(dir_data, "/", filename), 
-  sheet = "Kartgrunnlag2020")
-df_stations_all <- df_stations_all[1:5]
-names(df_stations_all)[c(1,4,5)] <- c("Shortname", "Index_ecol", "Class_chem")
+df_stations_all <- read_excel(paste0(dir_data, "/", filename),
+                              sheet = 1,
+                              range = "A1:E34", 
+                              col_types = "text") %>%
+  rename(Shortname = Rapportnavn,
+         Lat = Biologi_Lat,
+         Long = Biologi_Long,
+         Index_ecol = `Samlet økologisk tilstand (nEQR)`,
+         Class_chem = `Kjemisk tilstand`) %>%
+  as.data.frame()
 
-sel <- grepl("NUM0", df_stations_all$Shortname); sum(sel)
-df_stations_all$Breddegrad[sel] <- "59.085689"
-
-# Set long, lat
-df_stations_all <- df_stations_all %>%
-  mutate(Lat = as.numeric(sub(",", ".", Breddegrad)),
-         Long = as.numeric(sub(",",".", Lengdegrad))
-         )
-
-
-# "Fill out" Shortname
-for (i in  2:nrow(df_stations_all)){
-  if (is.na(df_stations_all$Shortname[i]))
-    df_stations_all$Shortname[i] <- df_stations_all$Shortname[i-1]
+for (i in c("Lat", "Long", "Index_ecol")){
+  df_stations_all[,i] <- sub(",", ".", df_stations_all[,i], fixed = TRUE)
+  df_stations_all[,i] <- as.numeric(df_stations_all[,i])
 }
 
+# Fix NUM0 position error
+# NOT NEEDED THIS YEAR
+# sel <- grepl("NUM0", df_stations_all$Shortname); sum(sel)
+# df_stations_all$Breddegrad[sel] <- "59.085689"
+
+# "Fill out" Shortname
+# NOT NEEDED THIS YEAR
+# for (i in  2:nrow(df_stations_all)){
+#   if (is.na(df_stations_all$Shortname[i]))
+#     df_stations_all$Shortname[i] <- df_stations_all$Shortname[i-1]
+# }
+
 df_stations_all
+
 ```
 
 ### b. Make 'df_stations'  
-Condensing to one line per station    
-The mining stations ('Gruve') have NA for both Index_ecol and Class_chem
+Condensing to one line per station (not needed this year)    
+The mining stations ('Gruve') not included from 2022 onwards
 ```{r}
 
 df_stations <- df_stations_all %>%
-  group_by(Shortname) %>%
-  summarise(Long = mean(Long),
-            Lat = mean(Lat),
-            Index_ecol = first(Index_ecol),
-            Class_chem = first(Class_chem)) %>% # View()
+  # 2021 code deleted here (condensing to one line per station)
   mutate(
     Stasjonstype = case_when(
       !is.na(Index_ecol) & is.na(Class_chem) ~ "Økologisk tilstand",
@@ -96,8 +100,7 @@ df_stations <- df_stations_all %>%
       TRUE ~ "?"),
     Stasjonstype = factor(Stasjonstype, 
                           levels = c(
-                            "Økologisk og kjemisk tilstand", "Økologisk tilstand",
-                            "Gruvevassdrag (lange tidsserier)"))
+                            "Økologisk og kjemisk tilstand", "Økologisk tilstand"))
   )
 
 xtabs(~addNA(Stasjonstype) + addNA(Class_chem), df_stations)
@@ -110,13 +113,19 @@ xtabs(~addNA(Stasjonstype) + addNA(Class_chem), df_stations)
 ```{r}
 # readxl::excel_sheets("Data_input/2022/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx")
 
-df_index <- read_excel(
-  paste0(dir_data, "/", filename), 
-  na = "NA",
-  col_types = c("text", rep("numeric", 3)),
-  sheet = "Figurgrunnlag2020")
+# df_index <- read_excel(
+#   paste0(dir_data, "/", filename), 
+#   na = "NA",
+#   col_types = c("text", rep("numeric", 3)),
+#   sheet = "Figurgrunnlag2020")
 
-names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol") # NOTE: hard-coded
+# names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol") # NOTE: hard-coded
+
+# 2022: only nEQR_ecol
+df_index <- df_stations_all[c(1,4)]
+names(df_index) <- c("Rapportnavn", "nEQR_ecol") 
+df_index <- df_index %>% 
+  mutate(nEQR_eutrofi = as.numeric(NA), nEQR_forsuring = as.numeric(NA))
 
 df_index <- df_index %>% filter(!is.na(Rapportnavn))
 
@@ -154,7 +163,10 @@ df_index_barplot <- df_index
 
 # names(df_index_barplot) %>% dput()
 
-for (var in c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")){
+vars <- c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")
+vars <- "nEQR_ecol"
+
+for (var in vars){
   x1 <- df_index_barplot[[var]]
   x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
   x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
@@ -173,10 +185,13 @@ for (var in c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")){
 
 }
 
+
 # Tabulate the result
 df_index_barplot %>%
   # First, put the data on long format
-  dplyr::select(Rapportnavn, nEQR_eutrofi_klasse, nEQR_forsuring_klasse, nEQR_ecol_klasse) %>%
+  # dplyr::select(Rapportnavn, nEQR_eutrofi_klasse, 
+  #               nEQR_forsuring_klasse, nEQR_ecol_klasse) %>%
+  dplyr::select(Rapportnavn, nEQR_ecol_klasse) %>%
   tidyr::pivot_longer(
     cols = -Rapportnavn,
     names_to = "Type", values_to = "Class") %>%
@@ -214,7 +229,8 @@ df_stations$Shortname
 ## 3. Save  
 ```{r}
 
-# dir.create("Data/2000")
+# dir.create("Data/2022")
+
 saveRDS(df_index, "Data/2022/07a_df_index_2020.rds")
 saveRDS(df_index_barplot, "Data/2022/07a_df_index_barplot_2020.rds")
 saveRDS(df_stations, "Data/2022/07a_df_stations_2020.rds")
