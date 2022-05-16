@@ -231,9 +231,9 @@ df_stations$Shortname
 
 # dir.create("Data/2022")
 
-saveRDS(df_index, "Data/2022/07a_df_index_2020.rds")
-saveRDS(df_index_barplot, "Data/2022/07a_df_index_barplot_2020.rds")
-saveRDS(df_stations, "Data/2022/07a_df_stations_2020.rds")
+saveRDS(df_index, "Data/2022/07a_df_index_2021.rds")
+saveRDS(df_index_barplot, "Data/2022/07a_df_index_barplot_2021.rds")
+saveRDS(df_stations, "Data/2022/07a_df_stations_2021.rds")
 
 ```
 
