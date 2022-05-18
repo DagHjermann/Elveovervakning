@@ -131,7 +131,8 @@ df_index_barplot <- readRDS("Data/2022/07a_df_index_barplot_2021.rds")
 
 # From script 7b, part 4c
 # From script 7b, part 2.a2
-df_stations_all <- read.csv("Data_input/2022/KartOgFigurgrunnlag2021.csv")  
+df_stations_all <- read.csv("Data_input/2022/KartOgFigurgrunnlag2021.csv",
+                            encoding = "UTF-8")  
 
 # Not relevant:
 # box_dim <- readRDS("Data/2022/07b_box_dim.rds")
@@ -492,7 +493,9 @@ ggplot(df_pies_all, aes(Class_ecol, Index_ecol, fill = Class_ecol)) +
 
 ```
 
+
 ### c. Chemical class, levels and colors    
+
 ```{r}
 
 df_pies_all <- df_pies_all %>%
@@ -504,11 +507,13 @@ df_pies_all <- df_pies_all %>%
       Class_chem %in% c("i.d.", "ID") ~ class_colors["Uklassifisert"])
   )
 
-
+xtabs(~addNA(Colour_chem) + addNA(Class_chem), df_pies_all)
 
 ```
 
-### d. Make pies from data frame 'df_pies_all', and add to 'df_pies_all'
+
+### d. Make pies from data frame 'df_pies_all', and add to 'df_pies_all'  
+
 ```{r, fig.width=3, fig.height=3}      
 
 # Function - make pie for line number i
@@ -524,9 +529,9 @@ make_pie_linenumber_indexvalues(3)
 
 # test - should make 3 plots with one pie in each  
 if (FALSE){
-  grep("GLO1", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
-  grep("GLO3", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
-  grep("ORR1", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("03.ORK1", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("02.ORK2", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("01.ORK3", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
 }
 
 # Make all pies (a list)
@@ -547,8 +552,17 @@ df_pies_all$pie = pies
 
 ### e. Test  
 ```{r}
-gg <- gg1_back +
-  geom_point(data = df_pies_all[c(1,5,10, 48),], aes(x = x, y = y))
+
+df_pies_test <- df_pies_all[c(1,5,10),]
+
+#
+# Width and height of pies
+#   
+df_pies_test$width = 250E3    # Sets size of pies
+df_pies_test$height = 250E3   
+
+gg <- gg_back_simp +
+  geom_point(data = df_pies_test, aes(x = x, y = y))
 gg
 
 ```
