@@ -686,7 +686,8 @@ gg2 <- gg1 +
     aes(x = x + 5000, label = Shortname), hjust = 0, color = "blue3")
   )
 
-ggsave2("{folder_fig}/07b_labelmap_with_labels_to_right.svg", gg2, width = 8, height = 12)
+ggsave2("{folder_fig}/07b_labelmap_with_labels_to_right.svg", gg2, 
+        width = 8, height = 12)
 
 # file manually edited in Inkscape and saved as 07b_labelmap_with_labels_to_right.svg
 # 
@@ -714,7 +715,13 @@ ggsave2("{folder_fig}/07b_labelmap_with_labels_to_right.svg", gg2, width = 8, he
 
 ## 5. Same plot as 4, Strahler 6      
 
-#### Make a ggplot without labels and save as svg
+#### Make a ggplot without labels and save as svg   
+
+* Save map without labels, then copy/paste labels from previous svg map   
+
+    - Select labels using Edit : Select same : Object type  
+    - Copy  
+    - Paste using Edit : Paste in place  
 
 ```{r, fig.width=8, fig.height=10}
 
@@ -746,24 +753,25 @@ gg1 <- gg_back_simp +
 # ggsave2("{folder_fig}/07b_labelmap_without_labels.svg", gg1, width = 8, height = 12)
 # Not used
 
+ggsave2("{folder_fig}/07b_labelmap_strahler6_without_labels.svg", 
+        gg1, width = 8, height = 12)
 
-# Add labels  
-gg2 <- gg1 +
+# No need to add and adjust labels - we already did that above  
+# 
   geom_text(
     data = df_stations, 
     aes(x = x + 5000, label = Shortname), hjust = 0, color = "blue3")
-
-ggsave2("{folder_fig}/07b_labelmap_strahler6_without_labels.svg", 
-        gg1, width = 8, height = 12)
 
 # file manually edited in Inkscape and saved as 07b_labelmap_with_labels_to_right.svg
 # 
 
 ```
 
+## 6. Test inset    
+  
+* __Not used!__   
 
-
-### c. Define box_corners and box_polygons  
+### a. Define box_corners and box_polygons  
 
 * code from 4a in last year's script  
 
@@ -785,7 +793,7 @@ box_polygons <- box_corners %>%
 
 ```
 
-### d. Define data_box  
+### b. Define data_box  
 
 ```{r}
 
@@ -805,9 +813,7 @@ data_box <- lapply(
 
 ```
 
-## 5. Insets  
-
-### Define list 
+### c. Define list 
 ```{r}
 
 gg_box_full <- list()         # full map with rivers and lakes
@@ -816,7 +822,7 @@ gg_box_simp <- list()   # coastline only
 ```
 
 
-### Inset 1, draft  
+### d. Inset 1, draft  
 
 * Use only coastline map (not rivers + lakes) so waiting times are shorter  
 ```{r}
@@ -881,7 +887,7 @@ gg
 
 ```
 
-### Inset 1, finished    
+### e. Inset 1, finished     
 
 * Use only coastline map (not rivers + lakes) so waiting times are shorter  
 ```{r}
