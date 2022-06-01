@@ -28,4 +28,8 @@ Two main parts:
   
 * Products in Figures/2021, Figures/2022 etc.   
 
+### 3. Calculation of climate (temp. and precipitation) trends for a table in the report  
+
+* See Project `Hjelp/Elveovervaakning_klima`   
+
 
