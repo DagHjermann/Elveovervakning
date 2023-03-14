@@ -263,7 +263,7 @@ vars <- c("Elv", "Elvestrekning", "Vannforekomst ID", "Steds-beskrivelse",
           "Stasjonskode (Begroingsalger)", "Tilstand PIT", "Tilstand AIP", "Tilstand HBI2", "Lat", "Long", 
           "Påvekst_col", "HBI_col", "Bunndyr_col")
 
-# For easy plotting in mapvio 
+# For easy plotting in mapview 
 datsf_longlat <- sf::st_as_sf(
   dat[vars],
   coords = c("Long", "Lat"), 
@@ -276,6 +276,7 @@ datsf <- st_transform(datsf_longlat, crs_utm)
 # Transform to Web mercator
 datsf_wm <- st_transform(datsf_longlat, 3857)  
 
+mapviewOptions(fgb = FALSE)       # probably needed
 mapview(datsf_longlat, zcol = "Elv")
 
 
