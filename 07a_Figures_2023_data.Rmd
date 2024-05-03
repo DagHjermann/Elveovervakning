@@ -45,16 +45,16 @@ These are from
 ```{r}
 
 # Backup (for reproducibility)
-dir_data <- "Data_input/2022"    
-filename <- "KartOgFigurgrunnlag2021.xlsx"
+dir_data <- "Data_input/2023"    
+filename <- "KartOgFigurgrunnlag2023.xlsx"
 
 # Original (used in report):
 # dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
 # filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
 
 df_stations_all <- read_excel(paste0(dir_data, "/", filename),
-                              sheet = 1,
-                              range = "A1:E34", 
+                              sheet = "Kartgrunnlag2023",        # HARD-CODED
+                              range = "A1:E40",                  # HARD-CODED
                               col_types = "text") %>%
   rename(Shortname = Rapportnavn,
          Lat = Biologi_Lat,
@@ -63,9 +63,21 @@ df_stations_all <- read_excel(paste0(dir_data, "/", filename),
          Class_chem = `Kjemisk tilstand`) %>%
   as.data.frame()
 
+# If any of the following columns are not numeric (typically because of 
+# decimal comma instead of decimal point), try to change them to numeric
 for (i in c("Lat", "Long", "Index_ecol")){
-  df_stations_all[,i] <- sub(",", ".", df_stations_all[,i], fixed = TRUE)
-  df_stations_all[,i] <- as.numeric(df_stations_all[,i])
+  if (class(df_stations_all[[i]]) != "numeric"){
+    number_of_NAs_before <- sum(is.na(df_stations_all[,i]))
+    # Replace ',' with '.' and convert to numeric
+    x <- sub(",", ".", df_stations_all[,i], fixed = TRUE)
+    x <- as.numeric(x)
+    number_of_NAs_after <- sum(is.na(x))
+    if (number_of_NAs_after > number_of_NAs_before){
+      stop("For some values, it didn't work to replace ',' with '.' and convert to numeric. Check data!")
+    } else {
+      df_stations_all[,i] <- x
+    }
+  }
 }
 
 # Fix NUM0 position error
