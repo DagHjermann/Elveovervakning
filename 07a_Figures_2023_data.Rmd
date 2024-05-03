@@ -8,9 +8,14 @@ output:
 
 ---
 
-Plots for report 2022 (*data* from 2021!)   
+Plots for data 2023 (report made in 2024)  
+* Note: year in script names from 2022 (and earlier) referred to *report year*   
 * Get data (used for both maps and figures)   
 * These data are used both by scripts 7b, 7c (which also needs some data from 7b), and 7c  
+* Things to check when there is a new year:  
+    - set year (section 1a2, line 32)  
+    - set/check excel cell range (section 2a, line 66)  
+    - check number of each class (section 2d) by comparing to excel sheet   
 
 
 ## 1. Prerequisites  
@@ -20,13 +25,20 @@ Plots for report 2022 (*data* from 2021!)
 
 library(dplyr)       # filter, group_by, summary, etc.
 library(readxl)
+library(glue)
 source("07_Figures_functions.R")
 
+```
+
+### a2. Set year (note: data year)  
+```{r}
+
+year <- 2023
 
 ```
 
 
-### a2. Last year's data for reference
+### a3. Last year's data for reference
 ```{r}
 
 # dir.create("Data/2000")
@@ -45,16 +57,16 @@ These are from
 ```{r}
 
 # Backup (for reproducibility)
-dir_data <- "Data_input/2023"    
-filename <- "KartOgFigurgrunnlag2023.xlsx"
+dir_data <- glue("Data_input/{year}")    
+filename <- glue("KartOgFigurgrunnlag{year}.xlsx")
 
 # Original (used in report):
 # dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
 # filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
 
 df_stations_all <- read_excel(paste0(dir_data, "/", filename),
-                              sheet = "Kartgrunnlag2023",        # HARD-CODED
-                              range = "A1:E40",                  # HARD-CODED
+                              sheet = glue("Kartgrunnlag{year}"),
+                              range = "A1:E40",                     # HARD-CODED!
                               col_types = "text") %>%
   rename(Shortname = Rapportnavn,
          Lat = Biologi_Lat,
@@ -169,7 +181,10 @@ df_index_barplot <- df_index
 
 ```
 
-### d. Add class value to bar plots  
+### d. Add class value to bar plots    
+
+* As the "class data" in the excel sheet is cell colour, check table and compare with number of different colors in the excel sheet "check colors"!  
+
 ```{r}
 
 
@@ -243,9 +258,13 @@ df_stations$Shortname
 
 # dir.create("Data/2022")
 
-saveRDS(df_index, "Data/2022/07a_df_index_2021.rds")
-saveRDS(df_index_barplot, "Data/2022/07a_df_index_barplot_2021.rds")
-saveRDS(df_stations, "Data/2022/07a_df_stations_2021.rds")
+folder_save <- glue("Data/{year}")
+if (!dir.exists(folder_save))
+  dir.create(folder_save)
+
+saveRDS(df_index, glue("Data/{year}/07a_df_index_{year}.rds"))
+saveRDS(df_index_barplot, glue("Data/{year}/07a_df_index_barplot_{year}.rds"))
+saveRDS(df_stations, glue("Data/{year}/07a_df_stations_{year}.rds"))
 
 ```
 
