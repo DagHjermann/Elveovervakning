@@ -38,7 +38,7 @@ year <- 2023
 ```
 
 
-### a3. Last year's data for reference
+### a3. Previous year's data for reference
 ```{r}
 
 # dir.create("Data/2000")
