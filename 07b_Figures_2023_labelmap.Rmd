@@ -1,0 +1,967 @@
+---
+title: "07 Figures 2018 - maps and barplots"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+
+---
+
+Overview maps (types of stations) for Methods chapter (section 3)  
+* using UTM zone 32V as projection  
+* Data for 7c are saved in 4c   
+* "Lange tidsserier" ('long time-series' stations) are used for Methods map, not in Results  
+
+## Overview of process:    
+1. Packages and load scripts      
+2. Data, includes    
+    - station data  
+    - background map (coast- + county lines)  
+    - rivers  
+    - the last two: downloaded as shape (UTM33), but coordinares extracted and converted to UTM32  
+3. Defines inset map boxes using a leaflet map; therefore boxes are defined using lat/long  
+    - boxes are saved as a list, each of which defining bottom left and top right corner   
+4. Prepare data sets in UTM32  
+    - station data   
+    - box_corners (used to make the inset plots, 'make_subplot_nolabels', and to filter stations for these)
+    - box_polygons (used to plot inset rectangles on the big map, 6b)  
+5. Is used only as a fast way to make a draft map with labels (used as help for 6a)
+6. Build gg3a plot
+    - Build gg2_points plot based on background map (gg_back + rivers) + labels, group by group  
+    - gg3a map = gg2_points map plus boxes   
+7. Functions for making insets  
+8. Make insets including labels. the resukt is a list of ggplot objects)
+9. Make final plot by adding legend (gg3b), then plot gg3b plus each of the insets   
+    - position of insets is quite a bit try and error   
+
+## Overview of some important objects and where they are created      
+
+Box coordinates:    
+- 3a2: boxlist, with lat-lon("manually" made by testing leaf2 in 3-c)  
+- 4b: 'boxlist' -> 'box_polygons' (UTM coordinates + dimensions)
+- 6b: box_polygons -> box_letter_pos   
+  
+ggplots (gg):  
+- 6a: gg_back -> gg2 (adding points and labels outside boxes)
+- 6b: gg2 -> gg3a (adding boxes and letters)   
+- 8: gg_back + df_stations -> gg_box 1-4 (adding rivers, points, labels)
+- 9b: 
+    - gg3a -> gg3b (removing legend)  
+    - gg3b + gg_box -> gg4 (adding inset maps) 
+
+data:  
+- 2a1: df_stations_all (read)
+- 2a3: df_stations_all -> df_stations (So. Norway only)  
+- 4a: df_stations -> df_stations (adding UTM coordinates)
+- 5a: df_stations + boxlist -> df_stations_outside (only used for test plots)  
+  
+Plots are combined and written to file in a separate script:   
+`07b_Figures_2020_labelmap_combine.R`  
+
+
+## 1. Prerequisites  
+
+### a. Whether and where to save figures  
+```{r}
+#
+# Save figures to file, or just show them in this report?
+#
+# NOTE: we now use a separate R file (see 9b in this script) 
+# - `07b_Figures_2020_labelmap_combine.R`  
+#
+# save_plots <- TRUE
+save_plots <- FALSE
+
+
+#
+# Where to save figures
+#
+folder_fig <- "Figures/2022_main"
+
+
+```
+
+### b. Packages + map  
+```{r}
+
+library(tidyverse)  # filter, group_by, summary, etc.
+library(gridGraphics)
+library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
+library(mapdata)
+library(readxl)
+
+# map_norway <- map_data("world", "Norway")
+# map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+
+# Long/lat map (including the smaller islands) - lacking Mjøsa, though! 
+#   (and including some North Finnish lakes?)
+load("Data_input/Norway_coastline_longlat2.RData")
+# rename
+map_norway_h <- norway_coast_longlat2
+rm(norway_coast_longlat)
+
+# Test plot
+# ggplot(map_norway_h) + geom_path(aes(long, lat, group = group))
+
+library(mapproj)    # mapproject
+library(ggrepel)    # geom_text_repel()
+library(sp)         # SpatialPoints(), CRS(), spTransform()
+library(sf)         # st_read
+library(ggimage)    # geom_subview(), theme_transparent()
+
+library(glue)       # used in ggplot2() function
+library(leaflet)
+
+library(cowplot)
+
+library(scatterD3)  # used to position labels  
+
+source("07_Figures_functions.R")
+
+# Define crs strings for conversion between long/lat and UTM
+crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
+crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"  # note: zone 32
+
+```
+
+
+## 2. Data
+
+### a1. Data   
+* From excel  
+```{r, warning=FALSE}
+
+# df_stations_all_OLD <- readRDS("Data/2021/07a_df_stations_2020.rds")
+# str(df_stations_all_OLD)
+
+df_stations_all <- readRDS("Data/2022/07a_df_stations_2021.rds")
+
+
+if (FALSE){
+  
+  # For reading from excel 
+  coltypes <- c("text", "numeric", "numeric", "numeric", "text")
+  df_stations_all <- read_excel("Data_input/2022/KartOgFigurgrunnlag2021.xlsx", 
+                                range = "A1:E34", 
+                                col_types = coltypes) %>%
+    rename(Shortname = Rapportnavn,
+           Lat = Biologi_Lat,
+           Long = Biologi_Long)
+
+  str(df_stations_all)
+  
+}
+
+
+
+```
+
+### a2. Stations, add UTM coordinates
+```{r}
+
+# The default transformation for 'add_transformed_coord' is from latlong to 
+df_stations_all <- add_transformed_coord(df_stations_all, 
+                                     name_x = "Long", name_y = "Lat",
+                                     from = "longlat", to = "utm", to_zone = 32)  
+
+write_csv(df_stations_all %>% select(-Stasjonstype),
+          "Data_input/2022/KartOgFigurgrunnlag2021.csv")  
+
+# write_csv(very_simple_map %>% add_transformed_coord(),
+#           "Data_input/2022/very_simple_map.csv")
+
+```
+
+### a3. Plot all stations  
+```{r}
+
+df_stations_all$Stasjonstype %>% table()
+
+very_simple_map <- map_data("world", "Norway")
+
+ggplot(df_stations_all, aes(Long, Lat, color = Stasjonstype)) +
+  annotation_map(very_simple_map, fill = "lightgreen") +
+  geom_point() +
+  # geom_text_repel() +
+  coord_map("lambert", 15, 65)  
+
+
+```
+
+### a4. Split into North and South Norway    
+
+```{r}
+
+df_stations_south <- df_stations_all %>%
+  filter(Lat < 65)
+
+df_stations_north <- df_stations_all %>%
+  filter(Lat >= 65)
+
+if (TRUE){
+  
+  ggplot(df_stations_south, aes(Long, Lat, color = Stasjonstype)) +
+    annotation_map(very_simple_map, fill = "lightgreen") +
+    geom_point() +
+    # geom_text_repel() +
+    coord_map("lambert", 15, 65) 
+  
+  ggplot(df_stations_north, aes(Long, Lat, color = Stasjonstype)) +
+    annotation_map(very_simple_map, fill = "lightgreen") +
+    geom_point() +
+    # geom_text_repel() +
+    coord_map("lambert", 15, 65) 
+  
+}
+
+```
+
+
+### b1. Map with counties (fylke)   
+
+* 
+```{r}
+# 
+# Gotten from Geonorge ("Norske fylker og kommuner illustrasjonsdata 2019 (klippet etter kyst)")
+#   https://kartkatalog.geonorge.no/metadata/cb02ab77-d3e6-4500-8a92-ea67367e7734 
+#   https://nedlasting.geonorge.no/geonorge/Generell/AdmEnh_klippet_etter_kyst2019.zip  
+map_counties_utm33 <- sf::st_read("Data_input/2021_map/fylker2021.json")
+# UTM zone 33
+# plot(map_counties_utm)
+
+```
+
+### b2. Make simplified coastline  
+* Using 'st_simplify'  
+    - reduces size from 17 MB to 0.6 MB  
+    - see https://www.r-bloggers.com/2021/03/simplifying-geospatial-features-in-r-with-sf-and-rmapshaper/   
+    - The simplification changes the geometry column from MULTIPOLYGON to GEOMETRY,
+    we must change it back (otherwise `st_coordinates`doesn't work)  
+    - See https://cran.r-project.org/web/packages/sf/vignettes/sf3.html  
+
+```{r}
+
+map_counties_utm33_simple <- st_simplify(map_counties_utm33,
+                                         preserveTopology = FALSE, dTolerance = 500)
+
+# The simplification () changes the geometry column from to GEOMEtry
+# Check:
+# class(map_counties_utm33$geometry)         # "sfc_MULTIPOLYGON" "sfc"
+# class(map_counties_utm33_simple$geometry)  # "sfc_GEOMETRY" "sfc"
+# We change it back like this: 
+#  (ref: https://cran.r-project.org/web/packages/sf/vignettes/sf3.html)
+
+map_counties_utm33_simple$geometry <- st_cast(
+  map_counties_utm33_simple$geometry, "MULTIPOLYGON")
+
+```
+
+### c. Get coordinates of county map (df_counties_all)  
+Used to make the background map  
+* We convert the map from UTM zone 33 to UTM 32, as this is more fitting for Southern Norway   (https://upload.wikimedia.org/wikipedia/commons/9/9e/LA2-Europe-UTM-zones.png)
+```{r}
+
+map_to_dataframe <- function(map_object){
+  st_coordinates(map_object) %>% 
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2, id = L3)
+}
+
+# Extract coordinates and Transform from UTM33 to UTM32
+df_counties_all <- map_to_dataframe(map_counties_utm33)
+df_counties_all_simple <- map_to_dataframe(map_counties_utm33_simple)
+
+nrow(df_counties_all)
+nrow(df_counties_all_simple)
+# [1] 798273
+# [1] 20095
+```
+
+
+
+### d. Make background map (gg1_back)    
+```{r}
+
+# Check counties: it turns out that 5 = Nordland, 10 = Troms + Finnmark
+
+if (FALSE){
+  df_counties_all %>% 
+    filter(L1 == 1) %>%
+    group_by(id) %>%
+    summarise(across(, mean)) %>%
+    arrange(y) %>%
+    ggplot(aes(x, y, label = id)) +
+    geom_text() +
+    coord_equal(ratio = 0.5) 
+}
+
+# Keep these 4 counties (Trøndelag + Nordland)
+# - for both full and simple version
+df_counties_full <- df_counties_all %>%
+  filter(id %in% c(9,5,6,11))
+df_counties_simp <- df_counties_all_simple %>%
+  filter(id %in% c(9,5,6,11))
+
+# Get remaining county numbers
+county_numbers <- unique(df_counties_simp$id)
+
+# Make gg 
+
+gg_from_counties_coastline <- function(mapdata){
+  
+  result <- ggplot(data = mapdata, aes(x, y)) + 
+    geom_blank() + 
+    coord_fixed() +
+    theme_minimal() +
+    theme(panel.grid = element_blank(),
+          axis.title = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+    )
+  
+  # Add one county after the other
+  for (i in county_numbers){
+    result <- result + 
+      geom_polygon(data = mapdata %>% filter(L1 == 1 & id %in% i), 
+                   aes(x, y, group = group), fill = "navajowhite", color = "grey30")
+  }
+  
+  invisible(result)
+  
+}
+
+# Start 'gg_back_full'
+gg_back_full <- gg_from_counties_coastline(df_counties_full)
+gg_back_simp <- gg_from_counties_coastline(df_counties_simp)
+
+# test use of ggdata
+if (FALSE)
+  gg_back_simp + ylim(range(ggdata$y) + c(-100E3, 0))
+
+```
+
+### e1. Rivers
+
+```{r}
+
+nc_rivers_strahler4_full <- st_read(
+  "K:\\Kart\\ELVIS\\Hovedelv\\elvis_hovedelv.shp",
+  query = "SELECT * FROM elvis_hovedelv WHERE STRAHLER >= 4")  # only big rivers; saves a little time
+#  UTM zone 33
+
+# Turns out to be harder to simplify rivers (they fall apart...)
+simplify_rivers <- FALSE  
+# simplify_rivers <- TRUE  
+
+if (simplify_rivers){
+  
+  nc_rivers_strahler4 <- st_simplify(nc_rivers_strahler4_full,
+                                     preserveTopology = FALSE, dTolerance = 100)
+  # Check class of geometry:
+  # nc_rivers_strahler4_full[["_ogr_geometry_"]][1] %>% class()
+  nc_rivers_strahler4[["_ogr_geometry_"]] <- st_cast(
+    nc_rivers_strahler4[["_ogr_geometry_"]], "MULTILINESTRING")
+  
+} else {
+  
+  nc_rivers_strahler4 <- nc_rivers_strahler4_full
+  
+}
+
+# Extract coordinates and Transform from UTM33 to UTM32
+df_rivers_strahler5 <- nc_rivers_strahler4 %>%
+  filter(STRAHLER >= 5) %>% 
+  st_coordinates %>%
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2) %>%
+  fix_river_errors(limit_meters = 2000)  # Fix errors (i.e. remove extremely long segments)
+
+df_rivers_strahler6 <- nc_rivers_strahler4 %>%
+  filter(STRAHLER >= 6) %>% 
+  st_coordinates %>%
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2) %>%
+  fix_river_errors(limit_meters = 2000) # Fix errors (i.e. remove extremely long segments)
+
+df_rivers_strahler7 <- nc_rivers_strahler4 %>%
+  filter(STRAHLER >= 7) %>% 
+  st_coordinates %>%
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2) %>%
+  fix_river_errors(limit_meters = 2000) # Fix errors (i.e. remove extremely long segments)
+
+range(df_counties_full$y)
+south_limit <- min(df_counties_full$y) - 300000 # 300 km S and N of limits
+north_limit <- max(df_counties_full$y) + 300000
+
+# Remove data for North Norway (filter doesn't work, as some data are reshuffeled)
+# sel <- !is.na(df_rivers_strahler5$y) & df_rivers_strahler5$y < south_limit  
+# df_rivers_strahler5[sel, c("x","y")] <- NA
+# sel <- !is.na(df_rivers_strahler5$y) & df_rivers_strahler5$y > north_limit  
+# df_rivers_strahler5[sel, c("x","y")] <- NA
+# 
+# sel <- !is.na(df_rivers_strahler7$y) & df_rivers_strahler7$y < south_limit
+# df_rivers_strahler7[sel, c("x","y")] <- NA
+# sel <- !is.na(df_rivers_strahler7$y) & df_rivers_strahler7$y > north_limit
+# df_rivers_strahler7[sel, c("x","y")] <- NA
+
+rivercol <- "lightskyblue"
+
+```
+
+### e2 Plot rivers  
+```{r}
+
+if (TRUE){
+  
+  # Test plot
+  gg_back_simp +
+    geom_path(data = df_rivers_strahler6, aes(x, y, group = group), col = "red") +
+    coord_fixed(xlim = c(7E5 + c(-1E5,1E5)), 
+                ylim = c(72E5 + c(-1E5,1E5)))
+}
+  
+if (FALSE){
+
+  gg_back_simp +
+    geom_path(data = df_rivers_strahler6_full, aes(x, y, group = group), col = "red") +
+    coord_fixed(xlim = c(7E5 + c(-1E5,1E5)), 
+                ylim = c(72E5 + c(-1E5,1E5)))
+
+}
+
+```
+
+### f1. Lakes  
+
+Get coordinates (in zone 32)   
+```{r}
+
+nc_lakes_full <- st_read("K:/Kart/N1000/VANN.shp")
+st_crs(nc_lakes_full) <- "+proj=utm +zone=33"  # set coordinate system
+
+# Turns out to be harder to simplify rivers (they fall apart...)
+simplify_lakes <- FALSE  
+# simplify_lakes <- TRUE  
+
+if (simplify_lakes){
+  
+  nc_lakes <- st_simplify(nc_lakes_full,
+                                     preserveTopology = FALSE, dTolerance = 300)
+  # Check class of geometry:
+  # nc_lakes[["_ogr_geometry_"]][1] %>% class()
+  nc_lakes[["geometry"]] <- st_cast(
+    nc_lakes[["geometry"]], "POLYGON")
+  
+} else {
+  
+  nc_lakes <- nc_lakes_full
+  
+}
+
+# Extract coordinates and Transform from UTM33 to UTM32
+df_lakes <- st_coordinates(nc_lakes) %>% 
+  as.data.frame() %>%
+  add_transformed_coord(
+    name_x = "X", name_y = "Y", 
+    from = "utm", from_zone = 33,
+    to = "utm", to_zone = 32
+  ) %>%
+  select(-X, -Y) %>%
+  rename(group = L2)
+
+# Mjøsa only 
+df_lakes_mjosa <- df_lakes %>% filter(group == 3462)
+
+```
+
+
+### f2. Plot lakes    
+```{r}
+
+if (TRUE){
+  
+  # Test plot
+  gg_back_simp +
+    geom_polygon(data = df_lakes, aes(x, y, group = group), col = "red", fill = "blue3") +
+    coord_fixed(xlim = c(7E5 + c(-1E5,1E5)), 
+                ylim = c(72E5 + c(-1E5,1E5)))
+}
+  
+```
+
+
+## 3. Plot with labels via ggrepel + scatterD3
+
+* without inset boxes   
+* Not used - turn out to be more complex than needed  
+
+### a. ggrepel plot  
+```{r, fig.width=8, fig.height=10}
+
+df_stations         <- df_stations_all   
+df_stations_outside <- df_stations_all   
+
+gg1 <- gg_back_simp +
+  geom_point(
+    data = df_stations, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  theme(  legend.position = c(.95, .95),
+          legend.justification = c("right", "top"),
+          legend.box.just = "right",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
+  geom_text_repel(
+    data = df_stations_outside, 
+    aes(label = Shortname, shape = Stasjonstype), color = "blue3", 
+    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 50000, box_padding = 0.5,
+    point_padding = 0.5)
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_test.png", gg1, width = 8, height = 12)
+
+# gg1
+
+```
+### b. Manual label placement using scatterD3
+
+* Work flow  
+    - code was run in the console   
+    - plot opens in the View window of RStudio  esize util it fits actual aspect of the map  
+    - labels adjusted manually (drag with mouse). Concentrate on the labels itself, not the lines  
+    - then click cogwheel icon in top right of map and choose "Export label positons"  
+    - saved in `Data_input\2022` as `Referanseelver_labels_2021.csv`   
+    - run next chunk (`c. Plot using exported label placement`) and repeat process if necessary  
+    - one problem is that label adjustment is not saved  
+```{r, fig.width = 4, fig.height = 9}
+
+# doesn't work for tibbles, so we convert it:
+df_stations <- as.data.frame(df_stations) 
+
+# test in Rmd
+# better to run in console and to do label placement in the Viewer
+scatterD3(data = df_stations, x = x, y = y, lab = Shortname)
+
+```
+
+
+### c. Plot using exported label placement  
+
+```{r, fig.width=8, fig.height=10}
+
+df_labels <- read.csv("Data_input/2022/Referanseelver_labels_2021_v2.csv")
+
+df_labels <- df_labels %>%
+  mutate(
+    adjustment_h = case_when(
+        grepl("ORK", lab) ~ 1,
+        TRUE ~ 0),
+    lab_x_adj = case_when(
+        grepl("ORK", lab) ~ lab_x -13000,
+        TRUE ~ lab_x + 13000)
+  )
+  
+df_stations         <- df_stations_all %>%
+  left_join(df_labels, by = c("Shortname" = "lab"))
+
+gg1 <- gg_back_simp +
+  geom_point(
+    data = df_stations, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  geom_text(data = df_labels, aes(x = lab_x_adj, y = lab_y, label = lab,
+                                  hadj = adjustment_h), 
+            color = "red", size = rel(3)) +
+  theme(  legend.position = c(.05, .95),
+          legend.justification = c("left", "top"),
+          legend.box.just = "left",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  )
+
+gg1b <- gg_back_simp +
+  scale_x_continuous(breaks = seq(400000, 800000, by = 50000), 
+                     minor_breaks = seq(400000, 800000, by = 10000)) +
+  scale_y_continuous(breaks = seq(6.9E6, 7.5E6, by = 50000), 
+                     minor_breaks = seq(6.9E6, 7.5E6, by = 10000)) +
+  theme(panel.grid.major = element_line(size = 1))  
+
+gg1c <- gg1 +
+  coord_fixed(xlim = c(400000, 800000), ylim = c(6.95E6, 7.5E6))
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_test.png", gg1c, width = 8, height = 12)
+
+gg1c
+
+```
+
+### d. Export as svg   
+
+* Edit in Inkscape  
+    - When you open the figure, all objects are grouped; select Object:Ungroup  
+    - Now labels can be moved manually  
+    - Mouse wheel to move up/down, shift + mouse wheel to move left/right  
+    - To edit text, use Text Tool (use arrow tool to resize object if needed)  
+    - To add lines, use Bezier and Straight lines tool (left click for each end, right click for finishing). Use shift + click on the colors on the bottom to change line color  
+    - Saved as `07b_labelmap_adj01.svg` and `07b_labelmap_adj02.svg`   
+
+```{r}
+
+ggsave2("{folder_fig}/07b_labelmap_test.svg", gg1, width = 8, height = 12)
+
+```
+
+
+## 4. Plot with labels, not ggrepel + scatterD3    
+
+#### Make a ggplot without labels and save as svg
+
+```{r, fig.width=8, fig.height=10}
+
+gg_back_simp +
+  theme(panel.grid.major.x = )
+
+gg1 <- gg_back_simp +
+  geom_path(data = df_rivers_strahler5, 
+            aes(group = group), col = rivercol) +
+  geom_polygon(data = df_lakes, 
+               aes(group = group), col = rivercol, fill = rivercol) +
+  geom_point(
+    data = df_stations, 
+    aes(shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_shape_manual(values = c(21,22,24)) +
+  theme(  legend.position = c(.05, .95),
+          legend.justification = c("left", "top"),
+          legend.box.just = "left",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
+  coord_fixed(xlim = c(400000, 800000), ylim = c(6.95E6, 7.5E6))
+
+
+# ggsave2("{folder_fig}/07b_labelmap_without_labels.svg", gg1, width = 8, height = 12)
+# Not used
+
+
+# Add labels  
+gg2 <- gg1 +
+  geom_text(
+    data = df_stations, 
+    aes(x = x + 5000, label = Shortname), hjust = 0, color = "blue3")
+  )
+
+ggsave2("{folder_fig}/07b_labelmap_with_labels_to_right.svg", gg2, 
+        width = 8, height = 12)
+
+# file manually edited in Inkscape and saved as 07b_labelmap_with_labels_to_right.svg
+# 
+
+```
+#### Adjust labels in Inkscape  
+
+* Open the result in Inkscape for editing  
+    - Start by saving as '07b_labelmap_with_labels_adjusted.svg'  
+    - When you open the figure, all objects are grouped; select Object:Ungroup  
+    - Now labels can be moved manually  
+    - Mouse wheel to move up/down, shift + mouse wheel to move left/right  
+    - To edit text, use Text Tool (use arrow tool to resize object if needed)  
+    - To add lines, use Bezier and Straight lines tool (left click for each end, right click for finishing). Use shift + click on the colors on the bottom to change line color  
+* When finished editing, set background to white   
+    - File : Document properties   
+    - On the "Page" tab, find Background at the bottom  
+    - click "Background color"  
+    - Set O (opacity) to 100   
+* Make png  
+    - File : Export PNG Image  
+    - Select "Page" in the top of the menu  
+    - Check filename and click Export  
+    
+
+## 5. Same plot as 4, Strahler 6      
+
+#### Make a ggplot without labels and save as svg   
+
+* Save map without labels, then copy/paste labels from previous svg map   
+
+    - Select labels using Edit : Select same : Object type  
+    - Copy  
+    - Paste using Edit : Paste in place  
+
+```{r, fig.width=8, fig.height=10}
+
+gg_back_simp +
+  theme(panel.grid.major.x = )
+
+gg1 <- gg_back_simp +
+  geom_path(data = df_rivers_strahler6, 
+            aes(group = group), col = rivercol) +
+  geom_polygon(data = df_lakes, 
+               aes(group = group), col = rivercol, fill = rivercol) +
+  geom_point(
+    data = df_stations, 
+    aes(shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_shape_manual(values = c(21,22,24)) +
+  theme(  legend.position = c(.05, .95),
+          legend.justification = c("left", "top"),
+          legend.box.just = "left",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) +
+  coord_fixed(xlim = c(400000, 800000), ylim = c(6.95E6, 7.5E6))
+
+
+# ggsave2("{folder_fig}/07b_labelmap_without_labels.svg", gg1, width = 8, height = 12)
+# Not used
+
+ggsave2("{folder_fig}/07b_labelmap_strahler6_without_labels.svg", 
+        gg1, width = 8, height = 12)
+
+# No need to add and adjust labels - we already did that above  
+# 
+  geom_text(
+    data = df_stations, 
+    aes(x = x + 5000, label = Shortname), hjust = 0, color = "blue3")
+
+# file manually edited in Inkscape and saved as 07b_labelmap_with_labels_to_right.svg
+# 
+
+```
+
+## 6. Test inset    
+  
+* __Not used!__   
+
+### a. Define box_corners and box_polygons  
+
+* code from 4a in last year's script  
+
+```{r}
+
+# Define list 
+box_corners <- list()
+
+# Inset 1 (the only one)
+box_corners[[1]] <- list(x = x_lim, y = y_lim)
+
+# from corners, make data set with 4 lines, one from each corner (anticlockwise from lower left)  
+corners_to_polygons <- function(df)
+  tibble(x = c(df$x[1], df$x[2], df$x[2], df$x[1]), y = c(df$y[1], df$y[1], df$y[2], df$y[2]))
+
+# Data frame of polygons (UTM coordinates)
+box_polygons <- box_corners %>%
+  purrr::map_dfr(corners_to_polygons, .id = "boxnumber")
+
+```
+
+### b. Define data_box  
+
+```{r}
+
+pick_data <- function(i, data){
+  data %>%
+    filter(point_inside(., box_corners[[i]]$x, box_corners[[i]]$y))
+}
+
+# test
+# pick_data(1, df_stations_all)
+
+# For all boxes  
+data_box <- lapply(
+  seq_along(box_corners),
+  pick_data,
+  data = df_stations_all)
+
+```
+
+### c. Define list 
+```{r}
+
+gg_box_full <- list()         # full map with rivers and lakes
+gg_box_simp <- list()   # coastline only  
+
+```
+
+
+### d. Inset 1, draft  
+
+* Use only coastline map (not rivers + lakes) so waiting times are shorter  
+```{r}
+
+i <- 1
+gg1 <- gg_back_simp +
+  coord_fixed(xlim = box_corners[[i]]$x, ylim = box_corners[[i]]$y)
+
+if (FALSE){
+  # May use interactive graphi in the start, as labels can be hard to see 
+  library(ggiraph)
+  gg2_interactive <- gg1 + 
+    geom_point_interactive(
+      data = data_box[[i]], 
+      aes(tooltip = Shortname, shape = Stasjonstype, fill = Stasjonstype), size = rel(2))
+  girafe(ggobj = gg2_interactive)
+}
+
+# Adjust 
+df_labs <- data_box[[i]] %>%
+  mutate(
+    xend = case_when(
+      substr(Shortname, 1, 2) == "06" ~ x,
+      TRUE ~ x + 3000),
+    yend = case_when(
+      substr(Shortname, 1, 2) == "12" ~ y + 7000,
+      substr(Shortname, 1, 2) == "11" ~ y + 4500,
+      substr(Shortname, 1, 2) == "10" ~ y + 3000,
+      substr(Shortname, 1, 2) == "06" ~ y - 3000,
+      TRUE ~ y),
+    # Horizontal adjustment of text: Use 0 for labels under/over point, 
+    #   -0.1 for labels to the right, and 1.1 for labels to the left  
+    # Effect: makes a little distance between end of line and label text
+    hjust = case_when(
+      substr(Shortname, 1, 2) == "06" ~ 0,
+      TRUE ~ -0.1),
+    # Vertical adjustment of text: Use 1.2 for labels under point, 
+    #   -0.2 for those over, and 0.5 for those to left/right  
+    # Effect: makes a little distance between end of line and label text
+    vjust = case_when(
+      substr(Shortname, 1, 2) == "06" ~ 1.2,
+      TRUE ~ 0.5)
+  )
+
+gg2 <- gg1 + 
+  geom_point(
+    data = data_box[[i]], 
+    aes(shape = Stasjonstype, fill = Stasjonstype), size = rel(2))
+
+gg <- gg2 + 
+  geom_segment(
+    data = df_labs, 
+    aes(xend = xend, yend = yend), color = "red") +
+  geom_point(
+    data = data_box[[i]], 
+    aes(shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
+  geom_text(data = df_labs, 
+    aes(x = xend, y = yend, label = Shortname, hjust = hjust, vjust = vjust), 
+    color = "red", size = rel(3))
+
+gg
+
+```
+
+### e. Inset 1, finished     
+
+* Use only coastline map (not rivers + lakes) so waiting times are shorter  
+```{r}
+
+# i = box_number
+# global: df_lakes
+make_gg_box <- function(box_number, gg_background, data_river){
+  gg_background +
+  geom_path(data = data_river, 
+            aes(group = group), col = rivercol) +
+  geom_polygon(data = df_lakes, 
+               aes(group = group), col = rivercol, fill = rivercol) +
+  geom_segment(
+    data = df_labs, 
+    aes(xend = xend, yend = yend), color = "red") +
+  geom_point(
+    data = data_box[[box_number]], 
+    aes(shape = Stasjonstype, fill = Stasjonstype), size = rel(2)) +
+  geom_text(data = df_labs, 
+    aes(x = xend, y = yend, label = Shortname, hjust = hjust, vjust = vjust), 
+    color = "red", size = rel(3)) +
+  coord_fixed(xlim = box_corners[[box_number]]$x, 
+              ylim = box_corners[[box_number]]$y)
+
+}
+
+gg_box_simp[[i]] <- make_gg_box(i, gg_back_simp, df_rivers_strahler7)
+gg_box_full[[i]] <- make_gg_box(i, gg_back_full, df_rivers_strahler5)
+
+gg_box_simp[[i]] 
+
+```
+
+
+### f. Plot with exported label placement  
+
+```{r, fig.width=8, fig.height=10}
+
+df_labels <- read.csv("Data_input/2022/Referanseelver_labels_2021_v2.csv")
+
+df_labels <- df_labels %>%
+  mutate(
+    adjustment_h = case_when(
+        grepl("ORK", lab) ~ 1,
+        TRUE ~ 0),
+    lab_x_adj = case_when(
+        grepl("ORK", lab) ~ lab_x -13000,
+        TRUE ~ lab_x + 13000)
+  )
+  
+df_stations         <- df_stations_all %>%
+  left_join(df_labels, by = c("Shortname" = "lab"))
+
+gg1 <- gg_back_simp +
+  geom_point(
+    data = df_stations, 
+    aes(label = Shortname, shape = Stasjonstype)) +
+  geom_text(data = df_labels, aes(x = lab_x_adj, y = lab_y, label = lab,
+                                  hadj = adjustment_h), 
+            color = "red", size = rel(3)) +
+  theme(  legend.position = c(.05, .95),
+          legend.justification = c("left", "top"),
+          legend.box.just = "left",
+          legend.box.background = element_rect(fill = "white", color = NA), 
+          legend.margin = margin(6, 6, 6, 6),
+          legend.key = element_rect(fill = "white", color = NA),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 18)
+  ) 
+
+if (save_plots)
+  ggsave2("{folder_fig}/07b_labelmap_test.png", gg1, width = 8, height = 12)
+
+gg1
+
+
+```
