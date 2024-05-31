@@ -1,5 +1,5 @@
 ---
-title: "Barplot figures (2021 data)"
+title: "Barplot figures (2023 data)"
 author: "DHJ"
 date: "May 2022"
 output: 
@@ -9,9 +9,10 @@ output:
     
 ---
 
-#### Bar plots for nEQR quality   
+# Bar plots for nEQR quality   
 
-* Data are prepared in script 07a and 07b  
+Plots for data 2023 (report made in 2024)  
+* Data are prepared in script 07a   
 * Plotting uses function `make_barplot_index()` in script 07..  
 
 ## 1. Prerequisites  
@@ -29,7 +30,10 @@ save_plots <- TRUE
 #
 # Where to save figures
 #
-folder_fig <- "Figures/2022_main"
+folder_fig <- "Figures/2023_main"
+
+# dir.exists(folder_fig)
+# dir(folder_fig)
 
 ```
 
@@ -89,12 +93,13 @@ names(class_colors) <- df_colors$Status_no
 
 ## 2. Data   
 
-### a. Data from script 7a and 7b  
+### a. Data from script 7a 
 ```{r}
 
 # From script 7a
 # df_index <- readRDS("Data/2022/07a_df_index_2019.rds")
-df_index_barplot <- readRDS("Data/2022/07a_df_index_barplot_2021.rds")
+df_index_barplot <- readRDS("Data/2023/07a_df_index_barplot_2023.rds") # %>%
+#  rename(Tilstandsklasse = nEQR_ecol_klasse)
 
 # From script 7b, part 4c
 # df_stations <- readRDS("Data/2022/07b_df_stations.rds")   # with UTM 32 coordinates
@@ -105,43 +110,10 @@ df_index_barplot <- readRDS("Data/2022/07a_df_index_barplot_2021.rds")
 ## 3. Bar plots
 
 ### a. Eutrofiering
-```{r, fig.width = 8, fig.height=10}
-label <- "Samlet eutrofieringstilstand (nEQR)"
-plotno <- "1a"
-# debugonce(make_indexplot)
+* no figure this year  
 
-gg <- make_barplot_index(df_index_barplot, "nEQR_eutrofi", label)
-if (save_plots){
-  ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".png"), gg, 
-         width = 8.5, height = 10.5, dpi = 500)
-  # Error in svglite_(file, bg, width, height, pointsize, standalone, aliases) : 
-  #   Graphics API version mismatch
-  # ggsave2(paste0("{folder_fig}/07_", plotno, "_", label, ".svg"), gg, 
-  #        width = 8.5, height = 10.5)
-}
-
-gg
-
-```
-
-### b. Forsuring (acidification)
-```{r, fig.height=7}
-
-label <- "Samlet forsuringstilstand (nEQR)"
-plotno <- "1b"
-gg <- make_barplot_index(df_index_barplot, "nEQR_forsuring", label)
-
-if (save_plots){
-  ggsave2("{folder_fig}/07_{plotno}_{label}.png", gg, 
-         width = 8.5, height = 10.5, dpi = 500)
-  # ggsave2("{folder_fig}/07_{plotno}_{label}.svg", gg, 
-  #        width = 8.5, height = 10.5, dpi = 500)
-  }
-
-gg
-
-```
-
+### b. Forsuring (acidification)  
+* no figure this year  
 
 ### c. Samlet økologisk tilstand 
 ```{r, fig.height=8.5}
