@@ -1,5 +1,5 @@
 ---
-title: "07 Figures 2022 - maps and barplots"
+title: "07 Data for 2024 maps and barplots"
 output: 
   html_document:
     keep_md: true
@@ -8,7 +8,7 @@ output:
 
 ---
 
-Plots for data 2023 (report made in 2024)  
+Plots for data 2024 (report made in 2025)  
 * Note: year in script names from 2022 (and earlier) referred to *report year*   
 * Get data (used for both maps and figures)   
 * These data are used both by scripts 7b, 7c (which also needs some data from 7b), and 7c  
@@ -33,7 +33,7 @@ source("07_Figures_functions.R")
 ### a2. Set year (note: data year)  
 ```{r}
 
-year <- 2023
+year <- 2024
 
 ```
 
@@ -64,15 +64,22 @@ filename <- glue("KartOgFigurgrunnlag{year}.xlsx")
 # dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
 # filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
 
+excel_sheets(paste0(dir_data, "/", filename))
+
+df_stations_check <- read_excel(paste0(dir_data, "/", filename),
+                              sheet = glue("Kartgrunnlag{year}"),
+                              # range = "A1:E40",                     # HARD-CODED!
+                              col_types = "text")
 df_stations_all <- read_excel(paste0(dir_data, "/", filename),
                               sheet = glue("Kartgrunnlag{year}"),
-                              range = "A1:E40",                     # HARD-CODED!
+                              # range = "A1:E40",                     # HARD-CODED!
                               col_types = "text") %>%
   rename(Shortname = Rapportnavn,
          Lat = Biologi_Lat,
          Long = Biologi_Long,
          Index_ecol = `Samlet økologisk tilstand (nEQR)`,
          Class_chem = `Kjemisk tilstand`) %>%
+  select(Shortname, Lat, Long, Index_ecol, Class_chem) %>% 
   as.data.frame()
 
 # If any of the following columns are not numeric (typically because of 
@@ -137,17 +144,22 @@ xtabs(~addNA(Stasjonstype) + addNA(Class_chem), df_stations)
 ```{r}
 # readxl::excel_sheets("Data_input/2022/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx")
 
-# df_index <- read_excel(
-#   paste0(dir_data, "/", filename), 
-#   na = "NA",
-#   col_types = c("text", rep("numeric", 3)),
-#   sheet = "Figurgrunnlag2020")
+df_check <- read_excel(
+  paste0(dir_data, "/", filename),
+  na = "NA",
+  sheet = glue("Figurgrunnlag{year}"))
 
-# names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol") # NOTE: hard-coded
+df_index <- read_excel(
+  paste0(dir_data, "/", filename),
+  na = "NA",
+  col_types = c("text", "numeric", "text", "text"), 
+  sheet = glue("Figurgrunnlag{year}")
+) %>% 
+  rename(nEQR_ecol = `Samlet økologisk tilstand (nEQR)`) %>% 
+  select(Rapportnavn, nEQR_ecol) %>% 
+  as.data.frame()
 
-# 2022: only nEQR_ecol
-df_index <- df_stations_all[c(1,4)]
-names(df_index) <- c("Rapportnavn", "nEQR_ecol") 
+# only nEQR_ecol this year
 df_index <- df_index %>% 
   mutate(nEQR_eutrofi = as.numeric(NA), nEQR_forsuring = as.numeric(NA))
 
@@ -156,8 +168,8 @@ df_index <- df_index %>% filter(!is.na(Rapportnavn))
 # Note: in 'make_indexplot()', the name "Rapportnavn" is hard-coded
 
 # nEQR shouldn't be > 1
-df_index <- df_index %>%
-  mutate(nEQR_forsuring = ifelse(nEQR_forsuring > 1, 1, nEQR_forsuring))
+# df_index <- df_index %>%
+#   mutate(nEQR_forsuring = ifelse(nEQR_forsuring > 1, 1, nEQR_forsuring))
 
 df_index
 
@@ -190,7 +202,7 @@ df_index_barplot <- df_index
 
 # names(df_index_barplot) %>% dput()
 
-vars <- c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")
+# vars <- c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")
 vars <- "nEQR_ecol"
 
 for (var in vars){
@@ -224,7 +236,10 @@ df_index_barplot %>%
     names_to = "Type", values_to = "Class") %>%
   # Then make table  
   xtabs(~Type + addNA(Class), .)
-      
+
+#
+# Checked with excel, by sorting the excel and counting cells by colour
+#
 
 ```
 
@@ -265,6 +280,18 @@ if (!dir.exists(folder_save))
 saveRDS(df_index, glue("Data/{year}/07a_df_index_{year}.rds"))
 saveRDS(df_index_barplot, glue("Data/{year}/07a_df_index_barplot_{year}.rds"))
 saveRDS(df_stations, glue("Data/{year}/07a_df_stations_{year}.rds"))
+
+```
+
+## 4. Appendix - check leaflet map  
+
+```{r}
+
+# library(leaflet)
+leaflet(df_stations) %>% 
+  leaflet::addTiles() %>% 
+  leaflet::addMarkers(lng = ~Long, lat = ~Lat, popup = ~Shortname)
+
 
 ```
 
