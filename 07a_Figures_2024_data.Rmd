@@ -1,0 +1,270 @@
+---
+title: "07 Figures 2022 - maps and barplots"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+
+---
+
+Plots for data 2023 (report made in 2024)  
+* Note: year in script names from 2022 (and earlier) referred to *report year*   
+* Get data (used for both maps and figures)   
+* These data are used both by scripts 7b, 7c (which also needs some data from 7b), and 7c  
+* Things to check when there is a new year:  
+    - set year (section 1a2, line 32)  
+    - set/check excel cell range (section 2a, line 66)  
+    - check number of each class (section 2d) by comparing to excel sheet   
+
+
+## 1. Prerequisites  
+
+### a1. Libs + map  
+```{r}
+
+library(dplyr)       # filter, group_by, summary, etc.
+library(readxl)
+library(glue)
+source("07_Figures_functions.R")
+
+```
+
+### a2. Set year (note: data year)  
+```{r}
+
+year <- 2023
+
+```
+
+
+### a3. Previous year's data for reference
+```{r}
+
+# dir.create("Data/2000")
+df_index_2021 <- readRDS("Data/2021/07a_df_index_2020.rds")
+df_index_barplot_2021 <- readRDS("Data/2021/07a_df_index_barplot_2020.rds")
+df_stations_2021 <- readRDS("Data/2021/07a_df_stations_2020.rds")
+
+```
+
+
+## 2. Data
+### a. Read station data (coordinates) for all sample sites  
+These are from   
+- 2019: `K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2019\Opsjon 3 biologi\Figurer og Kart (Dag)`   
+- 2020: `K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2020\Biologi - Opsjon 3\Rapportering\Kart og figurer, Dag` 
+```{r}
+
+# Backup (for reproducibility)
+dir_data <- glue("Data_input/{year}")    
+filename <- glue("KartOgFigurgrunnlag{year}.xlsx")
+
+# Original (used in report):
+# dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
+# filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
+
+df_stations_all <- read_excel(paste0(dir_data, "/", filename),
+                              sheet = glue("Kartgrunnlag{year}"),
+                              range = "A1:E40",                     # HARD-CODED!
+                              col_types = "text") %>%
+  rename(Shortname = Rapportnavn,
+         Lat = Biologi_Lat,
+         Long = Biologi_Long,
+         Index_ecol = `Samlet økologisk tilstand (nEQR)`,
+         Class_chem = `Kjemisk tilstand`) %>%
+  as.data.frame()
+
+# If any of the following columns are not numeric (typically because of 
+# decimal comma instead of decimal point), try to change them to numeric
+for (i in c("Lat", "Long", "Index_ecol")){
+  if (class(df_stations_all[[i]]) != "numeric"){
+    number_of_NAs_before <- sum(is.na(df_stations_all[,i]))
+    # Replace ',' with '.' and convert to numeric
+    x <- sub(",", ".", df_stations_all[,i], fixed = TRUE)
+    x <- as.numeric(x)
+    number_of_NAs_after <- sum(is.na(x))
+    if (number_of_NAs_after > number_of_NAs_before){
+      stop("For some values, it didn't work to replace ',' with '.' and convert to numeric. Check data!")
+    } else {
+      df_stations_all[,i] <- x
+    }
+  }
+}
+
+# Fix NUM0 position error
+# NOT NEEDED THIS YEAR
+# sel <- grepl("NUM0", df_stations_all$Shortname); sum(sel)
+# df_stations_all$Breddegrad[sel] <- "59.085689"
+
+# "Fill out" Shortname
+# NOT NEEDED THIS YEAR
+# for (i in  2:nrow(df_stations_all)){
+#   if (is.na(df_stations_all$Shortname[i]))
+#     df_stations_all$Shortname[i] <- df_stations_all$Shortname[i-1]
+# }
+
+df_stations_all
+
+```
+
+### b. Make 'df_stations'  
+Condensing to one line per station (not needed this year)    
+The mining stations ('Gruve') not included from 2022 onwards
+```{r}
+
+df_stations <- df_stations_all %>%
+  # 2021 code deleted here (condensing to one line per station)
+  mutate(
+    Stasjonstype = case_when(
+      !is.na(Index_ecol) & is.na(Class_chem) ~ "Økologisk tilstand",
+      !is.na(Index_ecol) & Class_chem %in% c("i.d.", "ID") ~ "Økologisk tilstand",
+      !is.na(Index_ecol) & Class_chem != c("i.d.", "ID") ~ "Økologisk og kjemisk tilstand",
+      grepl("^Gruve", Shortname) ~ "Gruvevassdrag (lange tidsserier)",
+      TRUE ~ "?"),
+    Stasjonstype = factor(Stasjonstype, 
+                          levels = c(
+                            "Økologisk og kjemisk tilstand", "Økologisk tilstand"))
+  )
+
+xtabs(~addNA(Stasjonstype) + addNA(Class_chem), df_stations)
+
+```
+
+### c. Read data for bar plots  
+* df_index is the actual data  
+* df_index_barplot will be used for bar plots (see remark in comments)
+```{r}
+# readxl::excel_sheets("Data_input/2022/Klassifisering av økologisk tilstand i elver for rapport 2020.xlsx")
+
+# df_index <- read_excel(
+#   paste0(dir_data, "/", filename), 
+#   na = "NA",
+#   col_types = c("text", rep("numeric", 3)),
+#   sheet = "Figurgrunnlag2020")
+
+# names(df_index) <- c("Rapportnavn", "nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol") # NOTE: hard-coded
+
+# 2022: only nEQR_ecol
+df_index <- df_stations_all[c(1,4)]
+names(df_index) <- c("Rapportnavn", "nEQR_ecol") 
+df_index <- df_index %>% 
+  mutate(nEQR_eutrofi = as.numeric(NA), nEQR_forsuring = as.numeric(NA))
+
+df_index <- df_index %>% filter(!is.na(Rapportnavn))
+
+# Note: in 'make_indexplot()', the name "Rapportnavn" is hard-coded
+
+# nEQR shouldn't be > 1
+df_index <- df_index %>%
+  mutate(nEQR_forsuring = ifelse(nEQR_forsuring > 1, 1, nEQR_forsuring))
+
+df_index
+
+# Data for barplots
+df_index_barplot <- df_index
+
+# Data for barplots (2020, ie. 2019 data)
+# "27.ORK1" has a missing value for 'nEQR_ecol', but it is supposed to be 'Moderate' 
+#   with 'unapplicable' nEQR_ecol. We here setr it to 0.5 jsut to have something to plot 
+
+# df_index_barplot <- df_index %>%
+#   mutate(nEQR_ecol =
+#            case_when(Rapportnavn %in% "27.ORK1" ~ 0.5,
+#                      TRUE ~ nEQR_ecol)
+#          ) %>%
+#   mutate(Label =
+#            case_when(Rapportnavn %in% "27.ORK1" ~ paste(Rapportnavn, "(nEQR-verdi ikke gjeldende)"),
+#                      TRUE ~ Rapportnavn)
+#          )
+  
+
+```
+
+### d. Add class value to bar plots    
+
+* As the "class data" in the excel sheet is cell colour, check table and compare with number of different colors in the excel sheet "check colors"!  
+
+```{r}
+
+
+# names(df_index_barplot) %>% dput()
+
+vars <- c("nEQR_eutrofi", "nEQR_forsuring", "nEQR_ecol")
+vars <- "nEQR_ecol"
+
+for (var in vars){
+  x1 <- df_index_barplot[[var]]
+  x2 <- 6 - as.numeric(cut(x1, breaks =  seq(0,1,0.2) + 0.001, label = FALSE))
+  x3 <- c("Svært god", "God", "Moderat", "Dårlig", "Svært dårlig", "Uklassifisert")[x2]
+  x3[is.na(x3)] <- "Uklassifisert"
+  
+  # Make variable 'Class'
+  df_index_barplot$Class <- factor(x3, levels = c("Svært god", "God", "Moderat", 
+                                                "Dårlig", "Svært dårlig", "Uklassifisert"))
+  
+  # Change name of variable 'Class'
+  df_index_barplot <- rename2(
+    df = df_index_barplot, 
+    oldname = "Class",
+    newname = paste0(var, "_klasse")
+    )
+
+}
+
+
+# Tabulate the result
+df_index_barplot %>%
+  # First, put the data on long format
+  # dplyr::select(Rapportnavn, nEQR_eutrofi_klasse, 
+  #               nEQR_forsuring_klasse, nEQR_ecol_klasse) %>%
+  dplyr::select(Rapportnavn, nEQR_ecol_klasse) %>%
+  tidyr::pivot_longer(
+    cols = -Rapportnavn,
+    names_to = "Type", values_to = "Class") %>%
+  # Then make table  
+  xtabs(~Type + addNA(Class), .)
+      
+
+```
+
+### e. Change index value for one salt water influenced station  
+```{r}
+
+if (FALSE){
+  
+  sel <- grepl("STR1", df_index_barplot$Rapportnavn)
+  cat(sum(sel), "station chosen \n")
+  
+  df_index_barplot$nEQR_eutrofi_klasse[sel] <- "Uklassifisert"
+  df_index_barplot$nEQR_forsuring_klasse[sel] <- "Uklassifisert"
+  df_index_barplot$nEQR_ecol_klasse[sel] <- "Uklassifisert"
+  
+  cat("Class set to NA for station",  sQuote(df_index_barplot$Rapportnavn[sel]), "  \n")
+  
+}
+
+
+```
+
+Stations  
+```{r}
+df_stations$Shortname
+```
+
+
+## 3. Save  
+```{r}
+
+# dir.create("Data/2022")
+
+folder_save <- glue("Data/{year}")
+if (!dir.exists(folder_save))
+  dir.create(folder_save)
+
+saveRDS(df_index, glue("Data/{year}/07a_df_index_{year}.rds"))
+saveRDS(df_index_barplot, glue("Data/{year}/07a_df_index_barplot_{year}.rds"))
+saveRDS(df_stations, glue("Data/{year}/07a_df_stations_{year}.rds"))
+
+```
+
