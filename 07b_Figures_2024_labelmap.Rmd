@@ -93,6 +93,7 @@ if (!dir.exists(folder_fig))
 ```{r}
 
 library(tidyverse)  # filter, group_by, summary, etc.
+library(ggeasy)
 library(gridGraphics)
 library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
 library(mapdata)
@@ -355,7 +356,8 @@ landcol <- "navajowhite"
 bordercol <- "grey30"
 rivercol <- "lightskyblue"
 textcol <- "#0000FF"        # corresponds to a color in the Inkscape color menu
-
+stationtype_palette <- "Set1"
+stationtype_shape <- c(21,22,24)
 
 ```
 
@@ -371,7 +373,9 @@ gg_so <- ggplot() +
   geom_sf(data = map_counties_so, fill = landcol, color = bordercol) +
   geom_sf(data = nc_rivers_so, color = rivercol) +
   geom_sf(data = nc_lakes_so, color = rivercol) +
-  geom_sf(data = sf_stations_so) +
+  geom_sf(data = sf_stations_so, aes(fill = Stasjonstype, shape = Stasjonstype)) +
+  scale_fill_brewer(palette = stationtype_palette) +
+  scale_shape_manual(values = stationtype_shape) +
   ggrepel::geom_text_repel(
     data = sf_stations_so,
     aes(label = Shortname, geometry = geometry),
@@ -403,7 +407,9 @@ gg_no <- ggplot() +
   geom_sf(data = map_counties_no, fill = landcol, color = bordercol) +
   geom_sf(data = nc_rivers_no, color = rivercol) +
   geom_sf(data = nc_lakes_no, color = rivercol) +
-  geom_sf(data = sf_stations_no) +
+  geom_sf(data = sf_stations_no, aes(fill = Stasjonstype, shape = Stasjonstype)) +
+  scale_fill_brewer(palette = stationtype_palette) +
+  scale_shape_manual(values = stationtype_shape) +
   ggrepel::geom_text_repel(
     data = sf_stations_no,
     aes(label = Shortname, geometry = geometry),
@@ -429,10 +435,12 @@ gg_no
 
 * Using ggrepel  
 * Post-processing in Inkscape (moving labels and making some new lines)  
+    - See Readme file for some tips  
 
 ```{r}
 
-ggsave(glue("{folder_fig}/07b_labelmap_so.svg"), gg_so, width = 7, height = 7)
-ggsave(glue("{folder_fig}/07b_labelmap_no.svg"), gg_no, width = 7, height = 12)
+ggsave(glue("{folder_fig}/07b_labelmap_so.svg"), gg_so + easy_remove_legend(), width = 7, height = 7)
+ggsave(glue("{folder_fig}/07b_labelmap_no.svg"), gg_no + easy_remove_legend(), width = 7, height = 12)
+ggsave(glue("{folder_fig}/07b_labelmap_so_with_legend.svg"), gg_so, width = 7, height = 7)
 
 ```

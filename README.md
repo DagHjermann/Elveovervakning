@@ -64,6 +64,17 @@ Two main parts:
       2) Go to preferences (Shift Ctrl P). 
       3) Select Tool - Pen 
       4) Click Take from selection   
+- To copy labels with their placement from one map to the other
+    - Open the receiver map  
+    - Choose one label and choose Edit > Select Same > Object type  
+    - Delete
+    - Choose one leadline (line between point and label) and choose Edit > Select Same > Stroke color    
+    - Delete
+    - Open the donor map  
+    - Choose one label and choose Edit > Select Same > Object type  
+    - Ctrl+C to copy, Ctrl+V to paste in receiver map  
+    - You may need to adjust placement by using arrow keys (for large movement) and Alt + Arrow keys (for small movement)
+    
 - Save as svg with "_adj" in the file name  
     
 
