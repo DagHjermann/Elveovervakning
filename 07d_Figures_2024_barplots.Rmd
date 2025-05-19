@@ -1,7 +1,7 @@
 ---
-title: "Barplot figures (2023 data)"
+title: "Barplot figures (2024 data)"
 author: "DHJ"
-date: "May 2022"
+date: "May 2025"
 output: 
   html_document:
     keep_md: true
@@ -11,7 +11,7 @@ output:
 
 # Bar plots for nEQR quality   
 
-Plots for data 2023 (report made in 2024)  
+Plots for data 2024 (report made in 2025)  
 * Data are prepared in script 07a   
 * Plotting uses function `make_barplot_index()` in script 07..  
 
@@ -26,11 +26,15 @@ Plots for data 2023 (report made in 2024)
 save_plots <- TRUE
 # save_plots <- FALSE
 
+#
+# Year
+#
+year <- 2024
 
 #
 # Where to save figures
 #
-folder_fig <- "Figures/2023_main"
+folder_fig <- glue("Figures/{year}_main")
 
 # dir.exists(folder_fig)
 # dir(folder_fig)
@@ -98,7 +102,7 @@ names(class_colors) <- df_colors$Status_no
 
 # From script 7a
 # df_index <- readRDS("Data/2022/07a_df_index_2019.rds")
-df_index_barplot <- readRDS("Data/2023/07a_df_index_barplot_2023.rds") # %>%
+df_index_barplot <- readRDS(glue("Data/{year}/07a_df_index_barplot_{year}.rds") # %>%
 #  rename(Tilstandsklasse = nEQR_ecol_klasse)
 
 # From script 7b, part 4c
