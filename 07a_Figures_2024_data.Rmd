@@ -54,15 +54,16 @@ df_stations_2021 <- readRDS("Data/2021/07a_df_stations_2020.rds")
 These are from   
 - 2019: `K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2019\Opsjon 3 biologi\Figurer og Kart (Dag)`   
 - 2020: `K:\Prosjekter\Ferskvann\16384 Elveovervåkingsprogrammet\2020\Biologi - Opsjon 3\Rapportering\Kart og figurer, Dag` 
+- 2024 data: project portal "200311 - Elveovervåkingsprogrammet Biologiske Kvalitetselementer 2021-2025"
+    - https://niva365.sharepoint.com/sites/projects1/4074/Shared%20Documents/Forms/AllItems.aspx?as=json
+    - folder 2024 > Figurer og Kart (Dag)  
+    - https://niva365.sharepoint.com/sites/projects1/4074/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2Fprojects1%2F4074%2FShared%20Documents%2F2024%2FFigurer%20og%20Kart%20%28Dag%29&viewid=c13a0c89%2D76f1%2D4a3e%2Da9bc%2D647489b7851c&as=json  
+    - copied manually to folder "Data_input"  
 ```{r}
 
 # Backup (for reproducibility)
 dir_data <- glue("Data_input/{year}")    
 filename <- glue("KartOgFigurgrunnlag{year}.xlsx")
-
-# Original (used in report):
-# dir_data <- "K:/Prosjekter/Ferskvann/16384 Elveovervåkingsprogrammet/2020/Biologi - Opsjon 3/Rapportering/Kart og figurer, Dag"
-# filename <- "KartOgFigurgrunnlag_TilDag.xlsx"
 
 excel_sheets(paste0(dir_data, "/", filename))
 
