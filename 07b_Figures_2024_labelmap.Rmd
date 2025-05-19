@@ -1,11 +1,12 @@
 ---
-title: "07 Figures 2018 - maps and barplots"
+title: "07b map for methods chapter - 2024 "
 output: 
   html_document:
     keep_md: true
     toc: true
     toc_float: true
-
+editor_options: 
+  chunk_output_type: console
 ---
 
 Overview maps (types of stations) for Methods chapter (section 3)  
@@ -73,11 +74,15 @@ Plots are combined and written to file in a separate script:
 # save_plots <- TRUE
 save_plots <- FALSE
 
+#
+# Year
+#
+year <- 2024
 
 #
 # Where to save figures
 #
-folder_fig <- "Figures/2023_main"
+folder_fig <- glue("Figures/{year}_main")
 
 if (!dir.exists(folder_fig))
   dir.create(folder_fig)
@@ -137,7 +142,7 @@ crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"  # note: zone
 # df_stations_all_OLD <- readRDS("Data/2021/07a_df_stations_2020.rds")
 # str(df_stations_all_OLD)
 
-df_stations_all <- readRDS("Data/2023/07a_df_stations_2023.rds")
+df_stations_all <- readRDS(glue("Data/{year}/07a_df_stations_{year}.rds"))
 
 
 if (FALSE){
@@ -168,7 +173,7 @@ df_stations_all <- add_transformed_coord(df_stations_all,
                                      from = "longlat", to = "utm", to_zone = 32)  
 
 write_csv(df_stations_all %>% select(-Stasjonstype),
-          "Data_input/2022/KartOgFigurgrunnlag2021.csv")  
+          glue("Data_input/{year}/KartOgFigurgrunnlag{year}.csv"))  
 
 # write_csv(very_simple_map %>% add_transformed_coord(),
 #           "Data_input/2022/very_simple_map.csv")
@@ -196,10 +201,10 @@ ggplot(df_stations_all, aes(Long, Lat, color = Stasjonstype)) +
 ```{r}
 
 df_stations_south <- df_stations_all %>%
-  filter(Lat < 65)
+  filter(Lat < 61)
 
 df_stations_north <- df_stations_all %>%
-  filter(Lat >= 65)
+  filter(Lat >= 61)
 
 if (TRUE){
   
@@ -218,156 +223,29 @@ if (TRUE){
 }
 
 ```
+## 3. Map data  
 
+### a. County map (fylke)   
 
-### b1. Map with counties (fylke)   
-
-* 
 ```{r}
 # 
 # Gotten from Geonorge ("Norske fylker og kommuner illustrasjonsdata 2019 (klippet etter kyst)")
-#   https://kartkatalog.geonorge.no/metadata/cb02ab77-d3e6-4500-8a92-ea67367e7734 
-#   https://nedlasting.geonorge.no/geonorge/Generell/AdmEnh_klippet_etter_kyst2019.zip  
-map_counties_utm33 <- sf::st_read("Data_input/2021_map/fylker2021.json")
-# UTM zone 33
-# plot(map_counties_utm)
+#
+
+map_counties_longlat <- sf::st_read(
+  "../../Mapdata/Basisdata_0000_Norge_25833_NorskeFylkerKommunerIllustrasjonsdata2024_GeoJSON/GeoJSON/Fylker_simple300.geojson") 
+plot(map_counties_longlat["navn"])
+map_counties_longlat[["navn"]]
+
+# Transform to UTM32
+map_counties <- map_counties_longlat %>% 
+  sf::st_transform(25832)
 
 ```
 
-### b2. Make simplified coastline  
-* Using 'st_simplify'  
-    - reduces size from 17 MB to 0.6 MB  
-    - see https://www.r-bloggers.com/2021/03/simplifying-geospatial-features-in-r-with-sf-and-rmapshaper/   
-    - The simplification changes the geometry column from MULTIPOLYGON to GEOMETRY,
-    we must change it back (otherwise `st_coordinates`doesn't work)  
-    - See https://cran.r-project.org/web/packages/sf/vignettes/sf3.html  
+### b. Rivers  
 
 ```{r}
-
-map_counties_utm33_simple <- st_simplify(map_counties_utm33,
-                                         preserveTopology = FALSE, dTolerance = 500)
-
-# The simplification () changes the geometry column from to GEOMEtry
-# Check:
-# class(map_counties_utm33$geometry)         # "sfc_MULTIPOLYGON" "sfc"
-# class(map_counties_utm33_simple$geometry)  # "sfc_GEOMETRY" "sfc"
-# We change it back like this: 
-#  (ref: https://cran.r-project.org/web/packages/sf/vignettes/sf3.html)
-
-map_counties_utm33_simple$geometry <- st_cast(
-  map_counties_utm33_simple$geometry, "MULTIPOLYGON")
-
-```
-
-### c. Get coordinates of county map (df_counties_all)  
-Used to make the background map  
-* We convert the map from UTM zone 33 to UTM 32, as this is more fitting for Southern Norway   (https://upload.wikimedia.org/wikipedia/commons/9/9e/LA2-Europe-UTM-zones.png)
-```{r}
-
-map_to_dataframe <- function(map_object){
-  st_coordinates(map_object) %>% 
-  as.data.frame() %>%
-  add_transformed_coord(
-    name_x = "X", name_y = "Y", 
-    from = "utm", from_zone = 33,
-    to = "utm", to_zone = 32
-  ) %>%
-  select(-X, -Y) %>%
-  rename(group = L2, id = L3)
-}
-
-# Extract coordinates and Transform from UTM33 to UTM32
-df_counties_all <- map_to_dataframe(map_counties_utm33)
-df_counties_all_simple <- map_to_dataframe(map_counties_utm33_simple)
-
-nrow(df_counties_all)
-nrow(df_counties_all_simple)
-# [1] 798273
-# [1] 20095
-```
-
-
-
-### d. Make background map (gg1_back)    
-```{r}
-
-# Check counties: it turns out that 5 = Nordland, 10 = Troms + Finnmark
-
-if (FALSE){
-  df_counties_all %>% 
-    filter(L1 == 1) %>%
-    group_by(id) %>%
-    summarise(across(, mean)) %>%
-    arrange(y) %>%
-    ggplot(aes(x, y, label = id)) +
-    geom_text() +
-    coord_equal(ratio = 0.5) 
-}
-
-# Keep these 4 counties (Trøndelag + Nordland)
-# - for both full and simple version
-df_counties_full <- df_counties_all %>%
-  filter(id %in% c(9,5,6,11))
-df_counties_simp_mid <- df_counties_all_simple %>%
-  filter(id %in% c(9,5,6,11))
-# south Norway
-df_counties_simp_so <- df_counties_all_simple %>%
-  filter(id %in% c(3,8,11,1,2,4,7))
-# north Norway
-df_counties_simp_no <- df_counties_all_simple %>%
-  filter(id %in% c(5,10))
-
-
-# Get remaining county numbers
-# county_numbers <- unique(df_counties_simp$id)
-
-# Make gg 
-
-gg_from_counties_coastline <- function(mapdata){
-  
-  result <- ggplot(data = mapdata, aes(x, y)) + 
-    geom_blank() + 
-    coord_fixed() +
-    theme_minimal() +
-    theme(panel.grid = element_blank(),
-          axis.title = element_blank(),
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-    )
-  
-  # Add one county after the other
-  county_numbers <- unique(mapdata$id)
-  for (i in county_numbers){
-    result <- result + 
-      geom_polygon(data = mapdata %>% filter(L1 == 1 & id %in% i), 
-                   aes(x, y, group = group), fill = "navajowhite", color = "grey30")
-  }
-  
-  invisible(result)
-  
-}
-
-# Start 'gg_back_full'
-gg_back_full <- gg_from_counties_coastline(df_counties_full)
-gg_back_simp <- gg_from_counties_coastline(df_counties_all_simple)
-gg_back_simp_so <- gg_from_counties_coastline(df_counties_simp_so)
-gg_back_simp_no <- gg_from_counties_coastline(df_counties_simp_no)
-
-# test use of ggdata
-if (FALSE)
-  gg_back_simp + ylim(range(ggdata$y) + c(-100E3, 0))
-
-```
-
-### e1. Rivers
-
-```{r}
-
-# OLD (from shape)
-# nc_rivers_strahler4_full <- st_read(
-#   "K:\\Kart\\ELVIS\\Hovedelv\\elvis_hovedelv.shp",
-#   query = "SELECT * FROM elvis_hovedelv WHERE STRAHLER >= 4")  # only big rivers; saves a little time
-#  UTM zone 33
 
 # NEW (geojson)
 nc_rivers_full <- st_read(
@@ -375,75 +253,24 @@ nc_rivers_full <- st_read(
 str(nc_rivers_full)
 table(addNA(nc_rivers_full$nivaa))
 
-# Test: glomma
-# nc_test <- nc_rivers_full %>% filter(grepl("Glomma", elvenavn))
-# ggplot(nc_test) + geom_sf()
+# test
+nc_rivers_full %>%
+  filter(nivaa %in% c("1a")) %>% 
+  .["elvenavn"] %>% 
+  plot()
 
-nc_rivers_nivaa3_full <- nc_rivers_full %>%
-  filter(nivaa %in% c("1a", "2a", "3a"))
 nc_rivers_nivaa2_full <- nc_rivers_full %>%
   filter(nivaa %in% c("1a", "2a"))
 
-# test
-# ggplot(nc_rivers_nivaa2_full) + geom_sf()
+# plot(nc_rivers_nivaa2_full["elvenavn"])
 
-
-# Extract coordinates and Transform from UTM33 to UTM32
-df_rivers <- nc_rivers_nivaa2_full %>%
-  st_coordinates %>%
-  as.data.frame() %>%
-  add_transformed_coord(
-    name_x = "X", name_y = "Y", 
-    from = "longlat", from_zone = 33,
-    to = "utm", to_zone = 32
-  ) %>%
-  select(-X, -Y) %>%
-  rename(group = L2) %>%
-  fix_river_errors(limit_meters = 2000)  # Fix errors (i.e. remove extremely long segments)
-
-range(df_counties_full$y)
-south_limit <- min(df_counties_full$y) - 300000 # 300 km S and N of limits
-north_limit <- max(df_counties_full$y) + 300000
-
-# Remove data for North Norway (filter doesn't work, as some data are reshuffeled)
-# sel <- !is.na(df_rivers_strahler5$y) & df_rivers_strahler5$y < south_limit  
-# df_rivers_strahler5[sel, c("x","y")] <- NA
-# sel <- !is.na(df_rivers_strahler5$y) & df_rivers_strahler5$y > north_limit  
-# df_rivers_strahler5[sel, c("x","y")] <- NA
-# 
-# sel <- !is.na(df_rivers_strahler7$y) & df_rivers_strahler7$y < south_limit
-# df_rivers_strahler7[sel, c("x","y")] <- NA
-# sel <- !is.na(df_rivers_strahler7$y) & df_rivers_strahler7$y > north_limit
-# df_rivers_strahler7[sel, c("x","y")] <- NA
-
-rivercol <- "lightskyblue"
+# Transform to UTM32
+nc_rivers <- nc_rivers_nivaa2_full %>% 
+  sf::st_transform(25832)
 
 ```
 
-### e2 Plot rivers  
-```{r}
-
-if (TRUE){
-  
-  # Test plot
-  gg_back_simp +
-    geom_path(data = df_rivers, aes(x, y, group = group), col = "red") +
-    coord_fixed(xlim = c(7E5 + c(-1E5,1E5)), 
-                ylim = c(72E5 + c(-1E5,1E5)))
-}
-  
-if (FALSE){
-
-  gg_back_simp +
-    geom_path(data = df_rivers_strahler6_full, aes(x, y, group = group), col = "red") +
-    coord_fixed(xlim = c(7E5 + c(-1E5,1E5)), 
-                ylim = c(72E5 + c(-1E5,1E5)))
-
-}
-
-```
-
-### f1. Lakes  
+### c. Lakes  
 
 ```{r}
 
@@ -457,136 +284,155 @@ range(nc_lakes_all$area)
 # Keep only the 50% largest lakes
 min <- quantile(nc_lakes_all$area, 0.5)
 nc_lakes <- nc_lakes_all %>%
-  filter(area > min)
+  filter(area > min) %>% 
+  # Transform to UTM32
+  sf::st_transform(25832)
 
-# test
-# ggplot(nc_lakes) + geom_sf(fill = "lightblue")
+```
 
-data_lakes <- nc_lakes %>%
-  # filter(AREA > 40E6) %>%
-  # st_transform(crs = "+proj=longlat +ellps=WGS84") %>%  # transform from UTM to long-lat
-  st_coordinates() %>%                                  # get coordinates only
-  as.data.frame() %>%
-  add_transformed_coord(
-    name_x = "X", name_y = "Y", 
-    from = "utm", from_zone = 33,
-    to = "utm", to_zone = 32
-  ) %>%
-  select(-X, -Y) %>%
-  rename(group = L2)
+### d. Stations  
+```{r}
+
+# see example in 'st_as_sf'  
+sf_stations_so = st_as_sf(df_stations_south, coords = c("x", "y"), crs = 25832)
+sf_stations_no = st_as_sf(df_stations_north, coords = c("x", "y"), crs = 25832)
 
 ```
 
 
-### f2. test plot
+## 4. Crop layers 
+
+### a. Use leaflet to find corners of maps  
+
 ```{r}
 
-
-if (TRUE){
+if (FALSE){
   
-  table(data_lakes$L1)
-  table(data_lakes$L2)
+  # advce: do this in 
   
-  gg_back_simp +
-    geom_path(data = df_rivers, aes(x, y, group = group), col = "red") +
-    geom_polygon(data = data_lakes, aes(x, y, group = group), fill = "purple")
-    # coord_fixed(xlim = c(7E5 + c(-1E5,1E5)), 
-    #             ylim = c(72E5 + c(-1E5,1E5)))
+  library(leaflet)
+  library(leafem)    # for addMouseCoordinates
+  
+  df_counties_longlat <- map_counties %>% 
+    st_coordinates() %>% 
+    as_tibble()
+  
+  leaflet(df_stations_south) %>% 
+    # leaflet(df_stations_north) %>% 
+    addTiles() %>% 
+    addMarkers(lng = ~Long, lat = ~Lat) %>% 
+    leafem::addMouseCoordinates()
+  
 }
 
-```
-## Plot with stations
+# Southern part:
+# 9.35, 59.52, 11.41, 61.03
+# Northern part
+# 8.65, 62.60, 16.70, 67.53:
 
-### Select x,y ranges for maps  
+```
+
+### b. Crop 
 
 ```{r}
 
-# Adjust the ranges using the grid in the map
+map_counties_so <- st_crop_from_latlong(map_counties, 9.35, 59.52, 11.41, 61.03)
+nc_rivers_so <- st_crop_from_latlong(nc_rivers, 9.35, 59.52, 11.41, 61.03)
+nc_lakes_so <- st_crop_from_latlong(nc_lakes, 9.35, 59.52, 11.41, 61.03)
 
-# Northern Norway
-lims1_x <- c(0.85E6, 1.35E6)
-lims1_y <- c(7.65E6, 8E6)
-
-# Southern Norway
-lims2_x <- c(0.25E6, 0.67E6)
-lims2_y <- c(6.42E6, 6.88E6)
-
-  gg_back_simp +
-    geom_point(data = df_stations_all, aes(x, y)) +
-    # coord_fixed(xlim = c(6E5 + c(-1E5,1E5)), 
-    #             ylim = c(65E5 + c(-1E5,1E5)))
-  scale_x_continuous(breaks = seq(0.2E6, 1.3E6, by = 0.1E6), 
-                     minor_breaks = seq(0.2E6, 1.3E6, by = 0.05E6)) +
-  scale_y_continuous(breaks = seq(6.4E6, 8E6, by = 0.1E6), 
-                     minor_breaks = seq(6.4E6, 8E6, by = 0.05E6)) +
-  theme(panel.grid.major = element_line(size = 1),
-        panel.grid.minor = element_line(size = 0.5)) +
-  annotate("rect", 
-           xmin = lims1_x[1], xmax = lims1_x[2], 
-           ymin = lims1_y[1], ymax = lims1_y[2], fill = NA, color = "red", size = 1) +
-  annotate("rect", 
-           xmin = lims2_x[1], xmax = lims2_x[2], 
-           ymin = lims2_y[1], ymax = lims2_y[2], fill = NA, color = "red", size = 1)
+map_counties_no <- st_crop_from_latlong(map_counties, 8.65, 62.60, 16.70, 67.53)
+nc_rivers_no <- st_crop_from_latlong(nc_rivers, 8.65, 62.60, 16.70, 67.53)
+nc_lakes_no <- st_crop_from_latlong(nc_lakes, 8.65, 62.60, 16.70, 67.53)
 
 ```
 
-## Final maps  
+## 5. Make overlay plots  
+
+### a. Common settings  
+```{r}
+
+landcol <- "navajowhite"
+bordercol <- "grey30"
+rivercol <- "lightskyblue"
+textcol <- "#0000FF"        # corresponds to a color in the Inkscape color menu
+
+
+```
+
+
+### b. Southern part 
+
+```{r}
+
+# for labels, see example in the ggrepel documentation
+# https://ggrepel.slowkow.com/articles/examples#label-sf-objects
+
+gg_so <- ggplot() +
+  geom_sf(data = map_counties_so, fill = landcol, color = bordercol) +
+  geom_sf(data = nc_rivers_so, color = rivercol) +
+  geom_sf(data = nc_lakes_so, color = rivercol) +
+  geom_sf(data = sf_stations_so) +
+  ggrepel::geom_text_repel(
+    data = sf_stations_so,
+    aes(label = Shortname, geometry = geometry),
+    stat = "sf_coordinates",
+    color = textcol, 
+    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 5000, box_padding = 0.5,
+    point_padding = 0.5,
+    min.segment.length = 0.1
+  ) +
+  theme_minimal() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+  )
+
+gg_so
+
+```
+
+
+### c. Northern  part 
+
+```{r}
+
+# as southern part, except: 
+#   nudge_x increased
+
+gg_no <- ggplot() +
+  geom_sf(data = map_counties_no, fill = landcol, color = bordercol) +
+  geom_sf(data = nc_rivers_no, color = rivercol) +
+  geom_sf(data = nc_lakes_no, color = rivercol) +
+  geom_sf(data = sf_stations_no) +
+  ggrepel::geom_text_repel(
+    data = sf_stations_no,
+    aes(label = Shortname, geometry = geometry),
+    stat = "sf_coordinates",
+    color = textcol, 
+    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 10000, box_padding = 0.5,
+    point_padding = 0.5,
+    min.segment.length = 0.1
+  ) +
+  theme_minimal() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+  )
+
+gg_no
+
+```
+
+
+
+## 6. Save maps  
 
 * Using ggrepel  
 * Post-processing in Inkscape (moving labels and making some new lines)  
 
-
-#### Map 1 - Norhtern Norway  
-
 ```{r}
 
-gg1 <- gg_back_simp +
-  geom_path(data = df_rivers, aes(x, y, group = group), col = rivercol) +
-  geom_polygon(data = data_lakes, aes(x, y, group = group), fill = rivercol) +
-  geom_point(data = df_stations_all, aes(x, y)) +
-  geom_text_repel(
-    data = df_stations_north, 
-    aes(label = Shortname, shape = Stasjonstype), color = "blue3", 
-    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 20000, box_padding = 0.5,
-    point_padding = 0.5) +
-  coord_fixed(xlim = lims1_x, ylim = lims1_y)
-
-# gg1 
-ggsave(glue("{folder_fig}/07b_labelmap_area1.svg"))
-# ggsave("{folder_fig}/07b_labelmap_area1.svg", gg1, width = 8, height = 12)
+ggsave(glue("{folder_fig}/07b_labelmap_so.svg"), gg_so, width = 7, height = 7)
+ggsave(glue("{folder_fig}/07b_labelmap_no.svg"), gg_no, width = 7, height = 12)
 
 ```
-
-#### Map 2  
-
-```{r}
-
-# df_stations_north -> df_stations_south
-# lims1_x, lims1_y -> lims2_x, lims2_y
-
-gg <- gg_back_simp +
-  geom_path(data = df_rivers, aes(x, y, group = group), col = rivercol) +
-  geom_polygon(data = data_lakes, aes(x, y, group = group), fill = rivercol) +
-  geom_point(data = df_stations_all, aes(x, y)) +
-  geom_text_repel(
-    data = df_stations_south, 
-    aes(label = Shortname, shape = Stasjonstype), color = "blue3", 
-    hjust = 0, force = 1, force_pull = 0.4, nudge_x = 20000, box_padding = 0.5,
-    point_padding = 0.5) +
-  coord_fixed(xlim = lims2_x, ylim = lims2_y)
-
-# gg 
-ggsave(glue("{folder_fig}/07b_labelmap_area2.svg"), gg)
-# ggsave("{folder_fig}/07b_labelmap_area1.svg", gg1, width = 8, height = 12)
-
-```
-## Save for script c  
-
-```{r}
-
-saveRDS(gg_back_simp, "Data/backgroundmap2023_gg_back_simp.rds")
-saveRDS(df_rivers, "Data/backgroundmap2023_df_rivers.rds")
-saveRDS(data_lakes, "Data/backgroundmap2023_data_lakes.rds")
-
-```
-

@@ -83,6 +83,38 @@ crs_string <- function(projection, zone = NA){
 # crs_string("longlat")
 # crs_string("utm", 32)
 
+# st_crop, but taking as input 
+# - sf_object in one projection, typically UTM
+# - bottom left and top right corners in lat/long 
+# - practical to use when you use leaflet (with leafem::addMouseCoordinates) 
+#   to find coordinates for corners of maps
+
+st_crop_from_latlong <- function(sf_object, xmin, ymin, xmax, ymax, crs = 25832){
+  p1 = st_point(c(xmin, ymin))
+  p2 = st_point(c(xmax, ymax))
+  sfc1 = st_sfc(p1, p2, crs = 4326)
+  sfc2 <- st_transform(sfc1, crs = crs)
+  # sfc2
+  # coord <- st_coordinates(sfc2)
+  # st_crop(sf_object, 
+  #         xmin = coord[1,"X"], ymin = coord[1,"Y"],
+  #         xmax = coord[2,"X"], ymax = coord[2,"Y"])
+  coord <- as.numeric(st_coordinates(sfc2))
+  st_crop(sf_object, xmin = coord[1], xmax = coord[2], ymin = coord[3], ymax = coord[4])
+}
+
+if (FALSE){
+  map_counties <- sf::st_read(
+    "../../Mapdata/Basisdata_0000_Norge_25833_NorskeFylkerKommunerIllustrasjonsdata2024_GeoJSON/GeoJSON/Fylker_simple300.geojson") 
+  # transform to UTM 32
+  map_counties_utm32 <- sf::st_transform(map_counties, 25832)  # see https://epsg.io/25832
+  map_counties_so <- st_crop_from_latlong(map_counties_utm32, 9.35, 59.52, 11.41, 61.03)
+  map_counties_no <- st_crop_from_latlong(map_counties_utm32, 8.65, 62.60, 16.70, 67.53)
+  plot(map_counties_so["navn"])
+  plot(map_counties_no["navn"])
+}
+
+
 #o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
 #
 # Functions for defining coordinates of insets ----
