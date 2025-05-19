@@ -27,6 +27,7 @@ Two main parts:
     - Using ggplot2 for maps  
     - 2021: script does the label placement  
     - 2022: label placement mostly done in Inkscape (can be copied from map to map, though)  
+    - For the post-processing in Inkscape, see "Appendix"  
     
 * Script 07c - map for Results chapter ("pies" with labels)  
     - Similar to 07b but adding pies  
@@ -46,5 +47,24 @@ Two main parts:
 ### 3. Calculation of climate (temp. and precipitation) trends for a table in the report  
 
 * See Project `Hjelp/Elveovervaakning_klima`   
+
+### Appendix: post-processing in Inkscape  
+- When you open the figure, all objects are grouped; select Object:Ungroup  
+- Now labels can be moved manually  
+- Mouse wheel to move up/down, shift + mouse wheel to move left/right  
+- To edit text, use Text Tool (use arrow tool to resize object if needed)  
+- To change the end point of lines, use the node tool (second tool from top, or F2)  
+- To add lines, use Bezier and Straight lines tool (left click for each end, right click for finishing)  
+    - F1 to get out of "line drawing mode"
+    - Use shift + click on the colors on the bottom to change line color  
+    - Use shift-ctrl F to change stroke width (used 1.4) and rounded cap  
+    - F1 
+    - To set this as default: 
+      1) Leave the line selected. (F1 - Then click on line)
+      2) Go to preferences (Shift Ctrl P). 
+      3) Select Tool - Pen 
+      4) Click Take from selection   
+- Save as svg with "_adj" in the file name  
+    
 
 
