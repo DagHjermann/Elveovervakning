@@ -1,0 +1,425 @@
+---
+title: "Untitled"
+author: "DHJ"
+date: "May 2023"
+output: html_document
+---
+
+
+"Quality maps" showing one pie per station for Results chapter     
+* Pie: color of left half shows ecological quality, colour of right half chemical quality  
+  
+## Code overview   
+* 2a: loads data (in 2021, also inset map coordinates)    
+* 2b-d: County map data is built up from scratch, as in script 7b   
+* 3.  
+    - Makes pie ggplot objects using the functions make_pie() and make_pie_from_colours()   
+    - These are stored in the column 'pie' in th data frame 'df_pies'   
+* 4. Make main map (all symbols, but labels are outside inset boxes only)   
+    - Very similar to script 7b   
+    - However, since 7b stores ggplot objects, not position of labels, much code is copy-pasted
+    from script 7b   
+* 5. Make inset plots   
+    - None this year     
+
+## 1. Prerequisites  
+
+### a. Whether and where to save figures  
+```{r}
+#
+# Save figures to file, or just show them in this report?
+#
+
+# save_plots <- TRUE
+save_plots <- FALSE
+
+
+#
+# Where to save figures
+#
+folder_fig <- "Figures/2023_main"
+
+
+```
+
+### b. Libs + map  
+```{r}
+
+library(tidyverse)  # filter, group_by, summary, etc.
+library(gridGraphics)
+library(maps)       # Norway map (NOTE: must be loaded after tidyverse)
+library(readxl)
+
+# map_norway <- map_data("world", "Norway")
+# map_norway_h <- readRDS("Data_input/map_norway_hires.RData")
+
+# Long/lat map (including the smaller islands) - lacking Mjøsa, though! 
+#   (and including some North Finnish lakes?)
+load("Data_input/Norway_coastline_longlat2.RData")
+# rename
+map_norway_h <- norway_coast_longlat2
+rm(norway_coast_longlat)
+
+# Test plot
+# ggplot(map_norway_h) + geom_path(aes(long, lat, group = group))
+
+library(mapproj)    # mapproject
+library(ggrepel)    # geom_text_repel()
+library(sp)         # SpatialPoints(), CRS(), spTransform()
+library(sf)         # st_read
+library(ggimage)    # geom_subview(), theme_transparent()
+
+library(glue)       # used in ggplot2() function
+library(leaflet)
+
+library(cowplot)
+
+source("07_Figures_functions.R")
+
+# Define crs strings for conversion between long/lat and UTM
+crs_longlat <- "+proj=longlat +ellps=WGS84 +datum=WGS84"
+crs_utm <- "+proj=utm +zone=32 +ellps=WGS84 +datum=WGS84 +units=m"
+
+```
+### c. Define colours for classes  
+```{r, fig.width=3.5, fig.height=2.5}
+
+# Order in plots etc.
+class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
+
+# Read standard colors
+df_colors <- read_excel("Data_input/Fargekoder RGB for tilstandsklassifisering.xlsx", sheet = 2) %>%
+  mutate(
+    Status_no = case_when(
+      Status %in% "High" ~ "Svært god",
+      Status %in% "Good" ~ "God",
+      Status %in% "Moderate" ~ "Moderat",
+      Status %in% "Poor" ~ "Dårlig",
+      Status %in% "Bad" ~ "Svært dårlig",
+      Status %in% "Unclassified" ~ "Uklassifisert"),
+    Status_no = factor(Status_no, levels = class_levels),
+    Class_color = rgb(R/255, G/255, B/255)
+  ) %>%
+  arrange(Status_no)
+df_colors
+
+
+# Show colors
+par(mar = c(0,0,2,0))
+pie(rep(1,6), 
+    col = df_colors$Class_color, 
+    labels = df_colors$Status_no, 
+    main = "Colors for nEQr classes")  
+
+# Also make named list
+class_colors <- df_colors$Class_color
+names(class_colors) <- df_colors$Status_no
+
+
+
+```
+
+## 2. Data   
+
+### a1. Data from script 7a and 7b  
+```{r}
+
+# From script 7a
+df_index_barplot <- readRDS("Data/2023/07a_df_index_barplot_2023.rds")
+df_stations_all <- readRDS("Data/2023/07a_df_stations_2023.rds")
+
+df_stations_all <- add_transformed_coord(df_stations_all, 
+                                     name_x = "Long", name_y = "Lat",
+                                     from = "longlat", to = "utm", to_zone = 32)  
+
+```
+
+
+### a2. Plot all stations  
+
+```{r}
+
+ggplot(df_stations_all, aes(Long, Lat)) +
+  geom_point() +
+  coord_map("lambert", 15, 65)  
+
+```
+
+
+### a3. Split into North and South Norway    
+
+```{r}
+
+df_stations_south <- df_stations_all %>%
+  filter(Lat < 65)
+
+df_stations_north <- df_stations_all %>%
+  filter(Lat >= 65)
+
+df_stations_all %>%
+  mutate(region = ifelse(Lat >= 65, "North", "South")) %>%
+  ggplot(aes(Long, Lat, color = Stasjonstype)) +
+  annotation_map(very_simple_map, fill = "lightgreen") +
+  geom_point() +
+  facet_wrap(vars(region))    # , scales = "free"
+
+
+```
+
+
+
+
+## 3. Make pies  
+
+### a. Start making 'df_pies'  
+Also writes df_stations_vf to excel (later manipulated semi-manually and used in part 6)    
+- Note that we use 'df_stations_all', i.e. also include the Northern ones   
+```{r}
+
+# Start with location data on Vannforekomst-level
+df_pies_all <- df_stations_all %>%
+  left_join(df_index_barplot %>% select(Rapportnavn, nEQR_ecol_klasse),
+            by = c("Shortname" = "Rapportnavn")) %>%
+  rename(Class_ecol = nEQR_ecol_klasse)
+
+
+```
+
+
+### b. Ecological class, levels and colors    
+```{r}
+
+
+# df_colors$Status_no
+# class_levels <- c("Svært dårlig", "Dårlig", "Moderat", "God", "Svært god", "Uklassifisert")
+
+
+df_pies_all <- df_pies_all %>%
+  left_join(
+    df_colors %>% select(Status_no, Class_color),
+    by = c("Class_ecol" = "Status_no")
+  ) %>%
+  rename(Colour_ecol = Class_color)  
+
+ggplot(df_pies_all, aes(Class_ecol, Index_ecol, fill = Class_ecol)) + 
+  geom_point(shape = 21, size = 2) +
+  scale_fill_manual(values = class_colors, drop = FALSE) +
+  theme(panel.background = element_rect(fill = "grey70"), panel.grid = element_blank())
+
+```
+
+
+### c. Chemical class, levels and colors    
+
+```{r}
+
+df_pies_all <- df_pies_all %>%
+  mutate(
+    Colour_chem = case_when(
+      is.na(Class_chem) ~ class_colors["Uklassifisert"],
+      Class_chem %in% "God" ~ class_colors["Svært god"],
+      Class_chem %in% "Ikke god" ~ class_colors["Svært dårlig"],
+      Class_chem %in% c("i.d.", "ID") ~ class_colors["Uklassifisert"])
+  )
+
+xtabs(~addNA(Colour_chem) + addNA(Class_chem), df_pies_all)
+
+```
+
+
+### d. Make pies from data frame 'df_pies_all', and add to 'df_pies_all'  
+
+```{r, fig.width=3, fig.height=3}      
+
+# Function - make pie for line number i
+make_pie_linenumber_indexvalues <- function(i){
+  df <- df_pies_all[i, c("Colour_ecol", "Colour_chem")]
+  make_pie_from_colours(as.character(df))
+}
+
+# TEST
+make_pie_linenumber_indexvalues(1)
+make_pie_linenumber_indexvalues(2)
+make_pie_linenumber_indexvalues(3)
+
+# test - should make 3 plots with one pie in each  
+if (FALSE){
+  grep("03.ORK1", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("02.ORK2", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+  grep("01.ORK3", df_pies_all$Shortname) %>% make_pie_linenumber_indexvalues()
+}
+
+# Make all pies (a list)
+pies <- 1:nrow(df_pies_all) %>% purrr::map(~make_pie_linenumber_indexvalues(.))
+length(pies)
+# check:
+# pies[[1]]
+
+# Add pies to dataframe (as a list column)
+df_pies_all$pie = pies
+# check:
+# df_pies_all$pie[1]
+
+# df <- df_pies_all %>% filter(!Shortname %in% c(group1, group2a, group2b))
+# df$pie[1]
+
+```
+
+### e. Test  
+```{r}
+
+df_pies_test <- df_pies_all[c(1,5,10),]
+
+#
+# Width and height of pies
+#   
+df_pies_test$width = 450E3    # Sets size of pies
+df_pies_test$height = 450E3   
+
+gg <- gg_back_simp +
+  geom_point(data = df_pies_test, aes(x = x, y = y))
+gg
+
+```
+
+## 4. Map   
+
+* We didn't have to make any boxes this time, so this is the entire map     
+
+### a. Test plot    
+```{r}
+
+# Pick all pies    
+df_pies <- df_pies_all
+
+# For the ones in Southern Norway: use
+#   filter(Lat < 65)
+
+#
+# Width and height of pies
+#   
+df_pies$width = 14E3    # Sets size of pies
+df_pies$height = 14E3   
+
+#
+# Make data set for stations outside inset plots
+#
+
+df_pies_outside <- df_pies
+
+#
+# All pies are outside so we skip the next part  
+#
+# for (i in unique(box_polygons$boxnumber)){
+#   box <- box_polygons %>% filter(boxnumber == i)
+#   df_pies_outside <- df_pies_outside %>%
+#     filter(
+#       !(x > min(box$x) & x < max(box$x) & y > min(box$y) & y < max(box$y))
+#     )
+# }
+
+gg1 <- gg_back_simp +
+  geom_subview(data = df_pies_outside, 
+               aes(x = x, y = y, subview = pie, width = width, height = height)
+               )
+# gg
+
+if (save_plots){  
+  fn <- glue("{folder_fig}/07c_quality_no_rivers_lakes.png")
+  scale <- 1.5
+  ggsave(fn, gg1, width = 18*scale, height = 25*scale, 
+         units = "cm", dpi = 500/scale)  
+}
+
+```
+
+
+### b. Make a ggplot without labels and save as svg   
+
+* Makes quality (cake) figure named 'without_labels' in svg format   
+    - Also include points 
+* Copied labels from label map and adjusted them  
+    - Opened in Inkscape and saved as `07c_quality_strahler6_with_labels_adjusted.svg`  
+    - Also opened label map `07b_labelmap_strahler6_with_labels_adjusted.svg` in Inkscape  
+    - Select labels using Edit : Select same : Object type  
+    - Copy  
+    - Paste using Edit : Paste in place   
+* Edited label and pie placements in Inkscape   
+    - When we had to move a pie, we added a line (width 1.5) between the point and the pie (see final figure)   
+* Add legend  
+    - Colors and text, see below (part c)  
+    - the small circle copied from`Qualitymap_2021_legend.svg`   
+* Set background to white and export to `.png` (see tips in script 07b part 4)   
+
+    
+```{r, fig.width=8, fig.height=10}
+
+# Northern Norway
+lims1_x <- c(0.85E6, 1.35E6)
+lims1_y <- c(7.65E6, 8E6)
+
+# Southern Norway
+lims2_x <- c(0.25E6, 0.67E6)
+lims2_y <- c(6.42E6, 6.88E6)
+
+gg1 <- gg_back_simp +
+  geom_path(data = df_rivers,
+            aes(group = group), col = rivercol) +
+  geom_polygon(data = data_lakes,
+               aes(group = group), col = rivercol, fill = rivercol) +
+  # Add points - normally covered by the pies, but are used if we have to move overlapping pies in Inkscape
+  # - see final file '07c_quality_strahler6_with_labels_adjusted'  
+  geom_point(data = df_pies_outside, 
+             shape = 15, size = rel(1)) +
+  # Add pies  
+  geom_subview(data = df_pies_outside, 
+               aes(x = x, y = y, subview = pie, width = width, height = height)
+               ) +
+  geom_text(data = df_pies_outside, aes(label = Shortname), hjust = 0, vjust = 0.5, nudge_x = 10000) +
+  # Extent exactly the same as for 7b map ("labelmap")  
+  # - this facilitates copy-paste of labels  
+  coord_fixed(xlim = lims1_x, ylim = lims1_y)
+
+
+# ggsave2("{folder_fig}/07b_labelmap_without_labels.svg", gg1, width = 8, height = 12)
+# Not used
+
+# gg1
+
+ggsave(glue("{folder_fig}/07c_quality_map1_fromscript.svg"), gg1)
+
+```
+```{r, fig.width=8, fig.height=10}
+
+# Southern Norway
+# lims1_x, lims1_y -> lims2_x, lims2_y
+# file name: 07c_quality_map1 -> 07c_quality_map2
+
+gg1 <- gg_back_simp +
+  geom_path(data = df_rivers,
+            aes(group = group), col = rivercol) +
+  geom_polygon(data = data_lakes,
+               aes(group = group), col = rivercol, fill = rivercol) +
+  # Add points - normally covered by the pies, but are used if we have to move overlapping pies in Inkscape
+  # - see final file '07c_quality_strahler6_with_labels_adjusted'  
+  geom_point(data = df_pies_outside, 
+             shape = 15, size = rel(1)) +
+  # Add pies  
+  geom_subview(data = df_pies_outside, 
+               aes(x = x, y = y, subview = pie, width = width, height = height)
+               ) +
+  geom_text(data = df_pies_outside, aes(label = Shortname), hjust = 0, vjust = 0.5, nudge_x = 10000) +
+  # Extent exactly the same as for 7b map ("labelmap")  
+  # - this facilitates copy-paste of labels  
+  coord_fixed(xlim = lims2_x, ylim = lims2_y)
+
+
+# ggsave2("{folder_fig}/07b_labelmap_without_labels.svg", gg1, width = 8, height = 12)
+# Not used
+
+# gg1
+
+ggsave(glue("{folder_fig}/07c_quality_map2_fromscript.svg"), gg1)
+
+```
+
