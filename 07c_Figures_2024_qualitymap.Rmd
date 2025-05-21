@@ -28,14 +28,6 @@ output: html_document
 ### a. Whether and where to save figures  
 ```{r}
 #
-# Save figures to file, or just show them in this report?
-#
-
-# save_plots <- TRUE
-save_plots <- FALSE
-
-
-#
 # Year
 #
 year <- 2024
@@ -362,6 +354,7 @@ gg_no
     - copy all labels from this map (Edit > Select Same > Object type) and paste into the 'qualitymap'  
     - copy all lead lines from this map (Edit > Select Same > Stroke color) to the 'qualitymap'  
     - you may want to adjust the positions a bit  
+    - saved with "adj" in file name  
 
 ```{r}
 
@@ -369,6 +362,31 @@ gg_no
 ggsave(glue("{folder_fig}/07c_qualitymap_so.svg"), gg_so, width = 7, height = 7)
 ggsave(glue("{folder_fig}/07c_qualitymap_no.svg"), gg_no, width = 7, height = 12)
 
+
+```
+
+
+## 5. Convert to png  
+
+* After post-processing in Inkscape  
+
+```{r}
+
+library(magick)
+
+for (area in c("so","no")){
+  fn_svg <- glue("{folder_fig}/07c_qualitymap_{area}_adj.svg")
+  dir(folder_fig)
+  if (file.exists(fn_svg)){
+    my_image <- image_read(fn_svg, density = 200)
+    image_info(my_image)
+    my_png <- image_convert(my_image, format="png")
+    image_write(my_png, sub(".svg$", ".png", fn_svg))
+    message("File ", sQuote(fn_svg), " converted to png")
+  } else {
+    warning("File ", sQuote(fn_svg), " not found")
+  }
+}
 
 ```
 
