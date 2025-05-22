@@ -328,6 +328,14 @@ if (FALSE){
 
 ```{r}
 
+# explicity, tell R that attribute variables are constant throughout the geometry:
+# See https://github.com/r-spatial/sf/issues/406
+st_agr(map_counties) <- "constant"
+st_agr(nc_rivers) <- "constant"
+st_agr(nc_lakes) <- "constant"
+# (st_crop still works if we don't do this, but will give the warning message
+# "attribute variables are assumed to be spatially constant throughout all geometries".)
+
 map_counties_so <- st_crop_from_latlong(map_counties, 9.35, 59.52, 11.41, 61.03)
 nc_rivers_so <- st_crop_from_latlong(nc_rivers, 9.35, 59.52, 11.41, 61.03)
 nc_lakes_so <- st_crop_from_latlong(nc_lakes, 9.35, 59.52, 11.41, 61.03)
